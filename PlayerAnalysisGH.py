@@ -1,7 +1,6 @@
 import pandas as pd
 from os.path import exists
 import pandasql as ps
-from sklearn.preprocessing import MinMaxScaler
 from datetime import datetime
 debug = 1
 
@@ -320,7 +319,7 @@ def create_matchhistory(df):
     
     # Drop duplicates based on match_name and game_number (keeping the first occurrence)
     # joined_results_grouped = joined_results_grouped.drop_duplicates(subset=['match_name', 'game_number'])
-    joined_results_grouped.to_csv('GCBLeague/GrindhouseProjects/whatisthis.csv')
+    # joined_results_grouped.to_csv('GCBLeague/GrindhouseProjects/whatisthis.csv')
     
     # Create a new DataFrame for match history
     match_history = joined_results_grouped[['match_name', 'Team_team', 'team_goals_team', 'Team_opponent', 'team_goals_opponent','game_number']].copy()
@@ -503,7 +502,51 @@ def admin_adjustments(match_history):
     match_history = insert_row(match_history,'[Week 5]The Cosmos vs How Do You Like Your Eggs(Coaches)- Admin Adjust COS', 'The Cosmos','How Do You Like Your Eggs?',2,0,2-0,'2v2',2,0,4)
     match_history = insert_row(match_history,'[Week 4]Funke Monke vs How Do You Like Your Eggs(Coaches)- Admin Adjust FUNK', 'Funke Monke','How Do You Like Your Eggs?',2,0,2-0,'2v2',2,0,4)
     match_history = insert_row(match_history,'[Week 6]The Cosmos vs Team XV(S)- Admin Adjust COS', 'The Cosmos','Team XV',3,2,3-2,'3v3',0,0,6)
+    match_history = insert_row(match_history,'[Week 5]High Stakes vs Team XV(Coaches)- Admin Adjust HS', 'High Stakes','Team XV',2,1,2-1,'2v2',2,1,2)
     return match_history
+
+def player_superlatives(merged_data,player_index):
+    player_index = pd.read_csv(player_index)
+    query = '''
+    with agg_step as (
+        Select Distinct
+        Discord,
+        SUM(goals) AS Goals,
+        SUM(saves) AS Saves,
+        SUM(assists) AS Assists,
+        SUM(shots) AS Shots,
+        SUM(goals/shots)*100 AS [Shooting Percentage],
+        SUM(inflicted) AS Inflicted
+        FROM merged_data 
+        GROUP BY Discord
+        
+    )
+    
+    SELECT pi.Discord as Player,
+    pi.platform_id,
+    pi.League,
+    pi.Team,
+    a.Goals,
+    RANK() OVER (ORDER BY Goals DESC) AS [Goals Ranking],
+    a.Saves,
+    RANK() OVER (ORDER BY Saves DESC) AS [Saves Ranking],
+    a.Assists,
+    RANK() OVER (ORDER BY Assists DESC) AS [Assists Ranking],
+    a.Shots,
+    a.[Shooting Percentage],
+    a.Inflicted,
+    RANK() OVER (ORDER BY Inflicted DESC) AS [Inflicted Ranking]
+    FROM agg_step a
+    LEFT JOIN player_index pi
+        ON pi.Discord = a.Discord
+    WHERE League not like '%Coach%'
+    '''
+    players = ps.sqldf(query, locals())
+    players.to_csv('GCBLeague/LeagueAuto/results.csv')
+
+    return players[['platform_id', 'Player', 'Team', 'Goals', 'Saves', 'Assists', 'Shots',
+       'Shooting Percentage', 'Inflicted', 'League',
+       'Goals Ranking', 'Assists Ranking', 'Saves Ranking','Inflicted Ranking']]
 
 if __name__ == "__main__":
     inpath = 'GCBLeague/GrindhouseProjects/seasonData.csv'
@@ -557,7 +600,8 @@ if __name__ == "__main__":
     leaderboard_df = leaderboard_df.sort_values(by='Team Points',ascending=False)
     leaderboard_df.to_csv('GCBLeague/GrindhouseProjects/Leaderboard.csv')
 
-
-
+    # Superlatives - add re-ranking to superlatives to reset the rank
+    superlatives = player_superlatives(merged_data,indexPath)
+    superlatives.to_csv('GCBLeague/GrindhouseProjects/Superlatives.csv')
     
    
