@@ -15,7 +15,6 @@ def create_matchhistory(df):
         'platform_id',
         'name',
         'Team_match',
-        'opponent',
         'game_outcome',
         'Team',
         'League',
@@ -496,13 +495,25 @@ def insert_row(df,match_name,Team_team,Team_opponent,Series_Record_Team_team,Ser
 def admin_adjustments(match_history):
     match_history = insert_row(match_history,'[Week 1]FarmersOnly vs Team XV(S)- Admin Adjust XV', 'FarmersOnly','Team XV',1,3,1-3,'3v3',8,10,6)
     match_history = insert_row(match_history,'[Week 1]FarmersOnly vs Team XV(Coaches)- Admin Adjust FARM', 'FarmersOnly','Team XV',2,0,2-0,'2v2',0,0,4)
-    match_history = insert_row(match_history,'[Week 3]FarmersOnly vs How Do You Like Your Eggs(Coaches)- Admin Adjust FARM', 'FarmersOnly','How Do You Like Your Eggs?',2,0,2-0,'2v2',2,0,4)
+    match_history = insert_row(match_history,'[Week 3]FarmersOnly vs How Do You Like Your Eggs?(Coaches)- Admin Adjust FARM', 'FarmersOnly','How Do You Like Your Eggs?',2,0,2-0,'2v2',2,0,4)
     match_history = insert_row(match_history,'[Week 4]High Stakes vs FarmersOnly(C)- RSweep Bonus HS', 'High Stakes','FarmersOnly',3,0,3-0,'3v3',0,0,1)
     match_history = insert_row(match_history,'[Week 5]High Stakes vs Team XV(C)- Admin Adjust HS', 'High Stakes','Team XV',3,0,3-0,'3v3',1,14,-2)
-    match_history = insert_row(match_history,'[Week 5]The Cosmos vs How Do You Like Your Eggs(Coaches)- Admin Adjust COS', 'The Cosmos','How Do You Like Your Eggs?',2,0,2-0,'2v2',2,0,4)
-    match_history = insert_row(match_history,'[Week 4]Funke Monke vs How Do You Like Your Eggs(Coaches)- Admin Adjust FUNK', 'Funke Monke','How Do You Like Your Eggs?',2,0,2-0,'2v2',2,0,4)
+    match_history = insert_row(match_history,'[Week 5]The Cosmos vs How Do You Like Your Eggs?(Coaches)- Admin Adjust COS', 'The Cosmos','How Do You Like Your Eggs?',2,0,2-0,'2v2',2,0,4)
+    match_history = insert_row(match_history,'[Week 4]Funke Monke vs How Do You Like Your Eggs?(Coaches)- Admin Adjust FUNK', 'Funke Monke','How Do You Like Your Eggs?',2,0,2-0,'2v2',2,0,4)
     match_history = insert_row(match_history,'[Week 6]The Cosmos vs Team XV(S)- Admin Adjust COS', 'The Cosmos','Team XV',3,2,3-2,'3v3',0,0,6)
     match_history = insert_row(match_history,'[Week 5]High Stakes vs Team XV(Coaches)- Admin Adjust HS', 'High Stakes','Team XV',2,1,2-1,'2v2',2,1,2)
+    match_history = insert_row(match_history,'[Week 7]FarmersOnly vs The Cosmos(Coaches)- Admin Adjust FO', 'FarmersOnly','The Cosmos',2,0,2-0,'2v2',2,0,4)
+    match_history = insert_row(match_history,'[Week 8]FarmersOnly vs How Do You Like Your Eggs?(B)- Bad Upload Fix', 'FarmersOnly','How Do You Like Your Eggs?',0,3,0-3,'3v3',0,3,8)
+    match_history = insert_row(match_history,'[Week 8]High Stakes vs The Cosmos(Coaches)- Admin Adjust COS', 'High Stakes','The Cosmos',0,2,0-2,'2v2',0,2,4)
+    match_history = insert_row(match_history,'[Week 9]Funke Monke vs The Cosmos(C)- Admin Adjust COS', 'Funke Monke','The Cosmos',2,3,2-3,'3v3',2,3,6)
+    match_history = insert_row(match_history,'[Week 9]FarmersOnly vs Team XV(Coaches)- Admin Adjust FARM', 'FarmersOnly','Team XV',2,0,2-0,'2v2',2,0,4)
+    match_history = insert_row(match_history,'[Week 9]High Stakes vs How Do You Like Your Eggs?(Coaches)- Admin Adjust HS', 'High Stakes','How Do You Like Your Eggs?',2,0,2-0,'2v2',2,0,4)
+    match_history = insert_row(match_history,'[Week 8]Funke Monke vs Team XV(Coaches)- Admin Adjust Funk', 'Funke Monke','Team XV',2,0,2-0,'2v2',2,0,4)
+    match_history = insert_row(match_history,'[Week 10]How Do You Like Your Eggs? vs Team XV(Coaches)- Admin Adjust EGG', 'How Do You Like Your Eggs?','Team XV',2,0,2-0,'2v2',2,0,4)
+    match_history = insert_row(match_history,'[Week 10]Funke Monke vs FarmersOnly(Coaches)- Admin Adjust COS', 'The Cosmos','FarmersOnly',2,0,2-0,'2v2',2,0,4)
+    match_history = insert_row(match_history,'[Week 9]Funke Monke vs The Cosmos(B)- Admin Adjust COS', 'Funke Monke','The Cosmos',0,3,0-3,'3v3',2,3,8)
+    match_history = insert_row(match_history,'[Week 8]Funke Monke vs The Cosmos(S)- RSweep Bonus FUNK', 'Funke Monke','The Cosmos',3,0,3-0,'3v3',0,0,1)
+    match_history = insert_row(match_history,'[Week 9]How Do You Like Your Eggs? vs Team XV(Coaches)- Stream Miss Penalty EGG', 'How Do You Like Your Eggs?', 'High Stakes',3,0,3-0,'3v3',3,0,-2)
     return match_history
 
 def player_superlatives(merged_data,player_index):

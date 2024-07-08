@@ -84,14 +84,15 @@ def get_players_data(replay, team):
         'team_name'
     ]]
 
-    # Add in opponent name for aggregation later
-    if team_name != '':
-        if team == 'blue':
-            df_meta['opponent'] = replay['orange']['name']
-        else:
-            df_meta['opponent'] = replay['blue']['name']
-    else:
-        df_meta['opponent'] = ''
+    # # Add in opponent name for aggregation later
+    # print (df_meta)
+    # if team_name != '':
+    #     if team == 'blue':
+    #         df_meta['opponent'] = replay['orange']['name']
+    #     else:
+    #         df_meta['opponent'] = replay['blue']['name']
+    # else:
+    #     df_meta['opponent'] = ''
 
     df_stats = pd.DataFrame.from_dict(temp['stats'])
     dict_stats = df_stats['stats'].to_dict()
@@ -169,7 +170,6 @@ def get_players_data(replay, team):
         'car_id',
         'car_name',
         'team_name',
-        'opponent',
         'game_outcome'
     ]]
 
