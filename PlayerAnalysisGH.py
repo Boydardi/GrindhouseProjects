@@ -387,7 +387,7 @@ def create_matchhistory(df):
                     match_history.at[index, 'Points'] = 8
                 elif ((Team1_Series == 3)|(Team2_Series == 3)):
                     match_history.at[index, 'Points'] = 6
-            
+            else: match_history.at[index, 'Points'] = 0
         # match_history.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/results.csv')
     
     match_history = match_history[match_history['Points']>0]
