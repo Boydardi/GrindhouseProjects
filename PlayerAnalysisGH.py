@@ -115,36 +115,51 @@ def create_matchhistory(df):
         'taken'
         ]].copy()
 
+    
     # df.to_csv('GCBLeague/GrindhouseProjects/initialresults.csv')
     # Convert 'created' to datetime and set timezone
     df_games['created'] = pd.to_datetime(df_games['created']).dt.tz_convert('UTC')
-    for index, row in df_games.iterrows():
-        if 'coaches' in row['group_id']:
-            df_games.loc[index, 'League'] = 'Coaches'
-    df_games.to_csv('GCBLeague/GrindhouseProjects/results.csv')
+    df_games.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/results.csv')
+
     query = """
-        WITH RankedGames AS (
+        WITH TeamCounts AS (
+            -- Calculate the count of each team per platform_id for each game
+            SELECT id, Team, COUNT(DISTINCT platform_id) AS platform_count
+            FROM df_games
+            GROUP BY id, Team
+        ),
+        RankedGames AS (
+            -- Join TeamCounts with df_games and replace 'Alternate' team based on platform counts
             SELECT DISTINCT
                 df1.*,
-                df2.Team as Team_opponent,
+                df2.Team AS Team_opponent,
+                CASE 
+                    WHEN df1.Team = 'Alternate' THEN (
+                        SELECT Team
+                        FROM TeamCounts tc
+                        WHERE tc.id = df1.id AND tc.platform_count < 3
+                        ORDER BY platform_count DESC
+                        LIMIT 1
+                    )
+                    ELSE df1.Team
+                END AS Team_replaced,
                 '[' || CASE
-                    WHEN df1.date < '2024-05-07' THEN 'Week 1'
-                    WHEN df1.date < '2024-05-14' and df1.date > '2024-05-06' THEN 'Week 2'
-                    WHEN df1.date < '2024-05-21' and df1.date > '2024-05-13' THEN 'Week 3'
-                    WHEN df1.date < '2024-05-28' and df1.date > '2024-05-20' THEN 'Week 4'
-                    WHEN df1.date < '2024-06-04' and df1.date > '2024-05-27' THEN 'Week 5'
-                    WHEN df1.date < '2024-06-11' and df1.date > '2024-06-05' THEN 'Week 6'
-                    WHEN df1.date < '2024-06-18' and df1.date > '2024-06-10' THEN 'Week 7'
-                    WHEN df1.date < '2024-06-24' and df1.date > '2024-06-17' THEN 'Week 8'
-                    WHEN df1.date < '2024-07-02' and df1.date > '2024-06-24' THEN 'Week 9'
-                    WHEN df1.date < '2024-07-09' and df1.date > '2024-07-01' THEN 'Week 10'
+                    WHEN df1.date < '2024-10-29' THEN 'Week 1'
+                    WHEN df1.date < '2024-11-04' AND df1.date > '2024-10-29' THEN 'Week 2'
+                    WHEN df1.date < '2024-11-11' AND df1.date > '2024-11-04' THEN 'Week 3'
+                    WHEN df1.date < '2024-11-18' AND df1.date > '2024-11-11' THEN 'Week 4'
+                    WHEN df1.date < '2024-11-25' AND df1.date > '2024-11-18' THEN 'Week 5'
+                    WHEN df1.date < '2024-12-02' AND df1.date > '2024-11-25' THEN 'Week 6'
+                    WHEN df1.date < '2024-12-09' AND df1.date > '2024-12-02' THEN 'Week 7'
+                    WHEN df1.date < '2024-12-16' AND df1.date > '2024-12-09' THEN 'Week 8'
                     ELSE ''
                 END || ']' || df1.Team || ' vs ' || df2.Team || '(' || df1.League || ')' AS match_name
-                FROM df_games df1
-                LEFT JOIN df_games df2
-                    ON df2.id = df1.id
-                    AND df2.created = df1.created
-                WHERE df1.Team <> df2.Team
+            FROM df_games df1
+            JOIN df_games df2
+                ON df2.id = df1.id
+                AND df2.created = df1.created
+            WHERE df1.Team <> df2.Team
+            AND df2.Team <> 'Alternate'
         )
 
         SELECT DISTINCT 
@@ -168,7 +183,7 @@ def create_matchhistory(df):
             [name],
             [car_id],
             [car_name],
-            [Team],
+            Team_replaced AS Team,
             [Team_opponent],
             [game_outcome],
             [shots],
@@ -258,22 +273,19 @@ def create_matchhistory(df):
             FIRST_VALUE(match_name) OVER (PARTITION BY group_id) AS match_name,
             DENSE_RANK() OVER (PARTITION BY group_id ORDER BY date) AS game_number
         FROM RankedGames
-        ORDER BY date ASC
+        ORDER BY date ASC;
     """
-
 
     # Execute the SQL query
     df_with_opponent = ps.sqldf(query, locals())
-    # df_with_opponent.to_csv('GCBLeague/GrindhouseProjects/AllMatches.csv')
+    # print(df_with_opponent.head(12))
+
+    df_with_opponent.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
 
         # Set game_mode based on match_name
     df_with_opponent['game_mode'] = '3v3'  # Default value
-
-    for index, row in df_with_opponent.iterrows():
-        if 'Coaches' in row['match_name'] == 2:
-            df_with_opponent.at[index, 'game_mode'] = '2v2'
     
-    df_with_opponent.to_csv('GCBLeague/GrindhouseProjects/AllMatches.csv')
+    # df_with_opponent.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
 
     # Create a new DataFrame for game-level statistics
     game_level_stats = df_with_opponent.groupby(['match_name', 'game_number', 'Team','id'])['goals'].sum().reset_index()
@@ -350,17 +362,12 @@ def create_matchhistory(df):
     # Set game_mode based on match_name
     match_history['game_mode'] = '3v3'  # Default value
 
-    # Iterate over rows to set game_mode
-    for index, row in match_history.iterrows():
-        if 'Coaches' in row['match_name']:
-            match_history.at[index, 'game_mode'] = '2v2'
-
     # Get the overall goals scored
     match_history['Goals_Scored_Team_team'] = match_history.groupby('match_name')['team_goals_team'].transform('sum')
     match_history['Goals_Scored_Team_opponent'] = match_history.groupby('match_name')['team_goals_opponent'].transform('sum')
-    match_history.to_csv('GCBLeague/GrindhouseProjects/full_match_history.csv')
+    match_history.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/full_match_history.csv')
     match_history['Points'] = None
-    # match_history.to_csv('GCBLeague/GrindhouseProjects/results.csv')
+    match_history.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/results.csv')
     rSweepFlag = False
     for index,row in match_history.iterrows():
         game_mode = row['game_mode']
@@ -370,39 +377,32 @@ def create_matchhistory(df):
         Team2_goals = row['Goals_Scored_Team_opponent']
 
         if game_mode == '3v3':
-            if (Team1_Series < 3 & Team2_Series < 3):
-                continue
-            elif(((Team1_Series == 3) & (Team2_Series == 0) & (Team2_goals == 0))|((Team2_Series == 3) & (Team1_Series == 0) & (Team1_goals == 0))):
-                match_history.at[index, 'Points']= 10
-            elif(((Team1_Series == 3) & (Team2_Series == 0))|((Team2_Series == 3) & (Team1_Series == 0))):
-                match_history.at[index, 'Points'] = 8
-            elif ((Team1_Series == 3)|(Team2_Series == 3)):
-                match_history.at[index, 'Points'] = 6
+            if match_history.at[index, 'match_name'][1:7] != 'Week 1': # Preseason check
+                # print(match_history.at[index, 'match_name'][1:7])
+                if (Team1_Series < 3 & Team2_Series < 3):
+                    continue
+                elif(((Team1_Series == 3) & (Team2_Series == 0) & (Team2_goals == 0))|((Team2_Series == 3) & (Team1_Series == 0) & (Team1_goals == 0))):
+                    match_history.at[index, 'Points']= 10
+                elif(((Team1_Series == 3) & (Team2_Series == 0))|((Team2_Series == 3) & (Team1_Series == 0))):
+                    match_history.at[index, 'Points'] = 8
+                elif ((Team1_Series == 3)|(Team2_Series == 3)):
+                    match_history.at[index, 'Points'] = 6
             
-        if game_mode == '2v2':
-            if((Team1_Series == 2)|(Team2_Series == 2)):
-                match_history.at[index, 'Points'] = 2
-            else:
-                continue
-            if(((Team1_Series == 2) & (Team2_Series == 0))|((Team2_Series == 2) & (Team1_Series == 0))):
-                match_history.at[index, 'Points'] = 4
-            if(((Team1_Series == 2) & (Team2_goals == 0))|((Team2_Series == 2) & (Team1_goals == 0))):
-                match_history.at[index, 'Points']= 6
-        match_history.to_csv('GCBLeague/GrindhouseProjects/results.csv')
+        # match_history.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/results.csv')
     
     match_history = match_history[match_history['Points']>0]
     match_history['Points'] = match_history['Points'].astype(int)
     # match_history.to_csv('GCBLeague/GrindhouseProjects/results.csv')
 
     final_match_history = match_history.drop(columns=['game_number','team_goals_team','team_goals_opponent'])
-    # final_match_history.to_csv('GCBLeague/GrindhouseProjects/full_match_history.csv')
+    final_match_history.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/full_match_history.csv')
     return final_match_history
 
 def create_leaderboard(df):
     all_teams_performance = pd.concat([df['Team_team'], df['Team_opponent']]).unique()
     all_teams_performance = pd.DataFrame({'Team': all_teams_performance, 'Team_Points': 0, 'Wins': 0, 'Losses': 0})
 
-    # df.to_csv('GCBLeague/GrindhouseProjects/results.csv')
+    #df.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/results.csv')
 
     all_teams_performance['Wins'] = 0
     all_teams_performance['Losses'] = 0
@@ -467,7 +467,7 @@ def merge_data(season_live_path, player_index_path):
     ORDER BY 3
     """
     all_players = ps.sqldf(get_names,locals())
-    all_players.to_csv('GCBLeague/GrindhouseProjects/all_names.csv')
+    all_players.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/all_names.csv')
 
     # Define the SQL query for the merge
     query = """
@@ -482,7 +482,7 @@ def merge_data(season_live_path, player_index_path):
         ON season_live.platform_id = pi2.alt_platform_id
     """
     merged_data = ps.sqldf(query, locals())
-    merged_data.to_csv('GCBLeague/GrindhouseProjects/merged_data.csv', index=False)
+    merged_data.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/merged_data.csv', index=False)
 
     return merged_data
 
@@ -493,27 +493,13 @@ def insert_row(df,match_name,Team_team,Team_opponent,Series_Record_Team_team,Ser
     return df
 
 def admin_adjustments(match_history):
-    match_history = insert_row(match_history,'[Week 1]FarmersOnly vs Team XV(S)- Admin Adjust XV', 'FarmersOnly','Team XV',1,3,1-3,'3v3',8,10,6)
-    match_history = insert_row(match_history,'[Week 1]FarmersOnly vs Team XV(Coaches)- Admin Adjust FARM', 'FarmersOnly','Team XV',2,0,2-0,'2v2',0,0,4)
-    match_history = insert_row(match_history,'[Week 3]FarmersOnly vs How Do You Like Your Eggs?(Coaches)- Admin Adjust FARM', 'FarmersOnly','How Do You Like Your Eggs?',2,0,2-0,'2v2',2,0,4)
-    match_history = insert_row(match_history,'[Week 4]High Stakes vs FarmersOnly(C)- RSweep Bonus HS', 'High Stakes','FarmersOnly',3,0,3-0,'3v3',0,0,1)
-    match_history = insert_row(match_history,'[Week 5]High Stakes vs Team XV(C)- Admin Adjust HS', 'High Stakes','Team XV',3,0,3-0,'3v3',1,14,-2)
-    match_history = insert_row(match_history,'[Week 5]The Cosmos vs How Do You Like Your Eggs?(Coaches)- Admin Adjust COS', 'The Cosmos','How Do You Like Your Eggs?',2,0,2-0,'2v2',2,0,4)
-    match_history = insert_row(match_history,'[Week 4]Funke Monke vs How Do You Like Your Eggs?(Coaches)- Admin Adjust FUNK', 'Funke Monke','How Do You Like Your Eggs?',2,0,2-0,'2v2',2,0,4)
-    match_history = insert_row(match_history,'[Week 6]The Cosmos vs Team XV(S)- Admin Adjust COS', 'The Cosmos','Team XV',3,2,3-2,'3v3',0,0,6)
-    match_history = insert_row(match_history,'[Week 5]High Stakes vs Team XV(Coaches)- Admin Adjust HS', 'High Stakes','Team XV',2,1,2-1,'2v2',2,1,2)
-    match_history = insert_row(match_history,'[Week 7]FarmersOnly vs The Cosmos(Coaches)- Admin Adjust FO', 'FarmersOnly','The Cosmos',2,0,2-0,'2v2',2,0,4)
-    match_history = insert_row(match_history,'[Week 8]FarmersOnly vs How Do You Like Your Eggs?(B)- Bad Upload Fix', 'FarmersOnly','How Do You Like Your Eggs?',0,3,0-3,'3v3',0,3,8)
-    match_history = insert_row(match_history,'[Week 8]High Stakes vs The Cosmos(Coaches)- Admin Adjust COS', 'High Stakes','The Cosmos',0,2,0-2,'2v2',0,2,4)
-    match_history = insert_row(match_history,'[Week 9]Funke Monke vs The Cosmos(C)- Admin Adjust COS', 'Funke Monke','The Cosmos',2,3,2-3,'3v3',2,3,6)
-    match_history = insert_row(match_history,'[Week 9]FarmersOnly vs Team XV(Coaches)- Admin Adjust FARM', 'FarmersOnly','Team XV',2,0,2-0,'2v2',2,0,4)
-    match_history = insert_row(match_history,'[Week 9]High Stakes vs How Do You Like Your Eggs?(Coaches)- Admin Adjust HS', 'High Stakes','How Do You Like Your Eggs?',2,0,2-0,'2v2',2,0,4)
-    match_history = insert_row(match_history,'[Week 8]Funke Monke vs Team XV(Coaches)- Admin Adjust Funk', 'Funke Monke','Team XV',2,0,2-0,'2v2',2,0,4)
-    match_history = insert_row(match_history,'[Week 10]How Do You Like Your Eggs? vs Team XV(Coaches)- Admin Adjust EGG', 'How Do You Like Your Eggs?','Team XV',2,0,2-0,'2v2',2,0,4)
-    match_history = insert_row(match_history,'[Week 10]Funke Monke vs FarmersOnly(Coaches)- Admin Adjust COS', 'The Cosmos','FarmersOnly',2,0,2-0,'2v2',2,0,4)
-    match_history = insert_row(match_history,'[Week 9]Funke Monke vs The Cosmos(B)- Admin Adjust COS', 'Funke Monke','The Cosmos',0,3,0-3,'3v3',2,3,8)
-    match_history = insert_row(match_history,'[Week 8]Funke Monke vs The Cosmos(S)- RSweep Bonus FUNK', 'Funke Monke','The Cosmos',3,0,3-0,'3v3',0,0,1)
-    match_history = insert_row(match_history,'[Week 9]How Do You Like Your Eggs? vs Team XV(Coaches)- Stream Miss Penalty EGG', 'How Do You Like Your Eggs?', 'High Stakes',3,0,3-0,'3v3',3,0,-2)
+    # match_history = insert_row(match_history,'[Week 1]FarmersOnly vs Team XV(S)- Admin Adjust XV', 'FarmersOnly','Team XV',1,3,1-3,'3v3',8,10,6)
+    match_history = insert_row(match_history,'[Week 1]Bezos Bros vs Tai Lung Leopards(S)- FF', 'Bezos Bros','Tai Lung Leopards',3,0,3-0,'3v3',0,0,0)
+    match_history = insert_row(match_history,'[Week 1]Bezos Bros vs Tai Lung Leopards(C)- Match Not Reported', 'Bezos Bros','Tai Lung Leopards',3,0,3-0,'3v3',0,0,0)
+    match_history = insert_row(match_history,'[Week 1]Big Pharma vs Megaminds(A)- Reverse Sweep', 'Big Pharma','Megaminds',3,0,3-0,'3v3',0,0,0)
+    match_history = insert_row(match_history,'[Week 2]Big Pharma vs Ginyu Force(B)- Reverse Sweep', 'Big Pharma','Ginyu Force',0,3,0-3,'3v3',0,0,1)
+    match_history = insert_row(match_history,'[Week 2]Megaminds vs Vectors(S)- Reverse Sweep', 'Megaminds','Vectors',0,3,0-3,'3v3',0,0,1)
+    match_history = insert_row(match_history,'[Week 2]Bezos Bros vs King Koba(B)- Reverse Sweep', 'Bezos Bros','King Koba',0,3,0-3,'3v3',0,0,1)
     return match_history
 
 def player_superlatives(merged_data,player_index):
@@ -553,15 +539,15 @@ def player_superlatives(merged_data,player_index):
     WHERE League not like '%Coach%'
     '''
     players = ps.sqldf(query, locals())
-    players.to_csv('GCBLeague/LeagueAuto/results.csv')
+    # players.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/LeagueAuto/results.csv')
 
     return players[['platform_id', 'Player', 'Team', 'Goals', 'Saves', 'Assists', 'Shots',
        'Shooting Percentage', 'Inflicted', 'League',
        'Goals Ranking', 'Assists Ranking', 'Saves Ranking','Inflicted Ranking']]
 
 if __name__ == "__main__":
-    inpath = 'GCBLeague/GrindhouseProjects/seasonData.csv'
-    indexPath = 'GCBLeague/GrindhouseProjects/S1PlayerInde.csv'
+    inpath = 'C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/seasonData.csv'
+    indexPath = 'C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/S2PlayerIndex.csv'
 
     merged_data = merge_data(inpath, indexPath)
     # merged_data.to_csv('merged_data.csv')
@@ -586,9 +572,9 @@ if __name__ == "__main__":
         """
 
         all_players_merged = ps.sqldf(get_merged_names,locals())
-        all_players_merged.to_csv('GCBLeague/GrindhouseProjects/all_merged_names.csv')
-        all_players = pd.read_csv('GCBLeague/GrindhouseProjects/all_names.csv')
-        all_players_merged = pd.read_csv('GCBLeague/GrindhouseProjects/all_merged_names.csv')
+        all_players_merged.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/all_merged_names.csv')
+        all_players = pd.read_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/all_names.csv')
+        all_players_merged = pd.read_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/all_merged_names.csv')
         differences = all_players.compare(all_players_merged)
         differences = differences.dropna(how='all')
         if (len(differences) > 0):
@@ -603,16 +589,16 @@ if __name__ == "__main__":
     # Create Match History
     match_history = create_matchhistory(merged_data)
     match_history = admin_adjustments(match_history) 
-    match_history.to_csv('GCBLeague/GrindhouseProjects/match_history.csv')
+    match_history.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/match_history.csv')
 
     # Create Leaderboard
     leaderboard_df = create_leaderboard(match_history)
     leaderboard_df = leaderboard_df.rename(columns={'Series_Record':'Series Record','Team_Points':'Team Points'})
     leaderboard_df = leaderboard_df.sort_values(by='Team Points',ascending=False)
-    leaderboard_df.to_csv('GCBLeague/GrindhouseProjects/Leaderboard.csv')
+    leaderboard_df.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/Leaderboard.csv')
 
     # Superlatives - add re-ranking to superlatives to reset the rank
     superlatives = player_superlatives(merged_data,indexPath)
-    superlatives.to_csv('GCBLeague/GrindhouseProjects/Superlatives.csv')
+    superlatives.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/Superlatives.csv')
     
    
