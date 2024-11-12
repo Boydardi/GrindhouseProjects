@@ -18,6 +18,9 @@ def create_matchhistory(df):
         'game_outcome',
         'Team',
         'League',
+        'Traded',
+        'TradeDate',
+        'TradeTeam',
         'uid',
         'match_type',
         'team_size',
@@ -141,19 +144,30 @@ def create_matchhistory(df):
                         ORDER BY platform_count DESC
                         LIMIT 1
                     )
+                    when df1.Traded = 'Y' and df1.date > df1.TradeDate THEN df1.TradeTeam
                     ELSE df1.Team
                 END AS Team_replaced,
-                '[' || CASE
-                    WHEN df1.date < '2024-10-29' THEN 'Week 1'
-                    WHEN df1.date < '2024-11-04' AND df1.date > '2024-10-29' THEN 'Week 2'
-                    WHEN df1.date < '2024-11-11' AND df1.date > '2024-11-04' THEN 'Week 3'
-                    WHEN df1.date < '2024-11-18' AND df1.date > '2024-11-11' THEN 'Week 4'
-                    WHEN df1.date < '2024-11-25' AND df1.date > '2024-11-18' THEN 'Week 5'
-                    WHEN df1.date < '2024-12-02' AND df1.date > '2024-11-25' THEN 'Week 6'
-                    WHEN df1.date < '2024-12-09' AND df1.date > '2024-12-02' THEN 'Week 7'
-                    WHEN df1.date < '2024-12-16' AND df1.date > '2024-12-09' THEN 'Week 8'
-                    ELSE ''
-                END || ']' || df1.Team || ' vs ' || df2.Team || '(' || df1.League || ')' AS match_name
+                '[' 
+                    || CASE
+                        WHEN df1.date < '2024-10-29' THEN 'Week 1'
+                        WHEN df1.date < '2024-11-04' AND df1.date > '2024-10-29' THEN 'Week 2'
+                        WHEN df1.date < '2024-11-11' AND df1.date > '2024-11-04' THEN 'Week 3'
+                        WHEN df1.date < '2024-11-18' AND df1.date > '2024-11-11' THEN 'Week 4'
+                        WHEN df1.date < '2024-11-25' AND df1.date > '2024-11-18' THEN 'Week 5'
+                        WHEN df1.date < '2024-12-02' AND df1.date > '2024-11-25' THEN 'Week 6'
+                        WHEN df1.date < '2024-12-09' AND df1.date > '2024-12-02' THEN 'Week 7'
+                        WHEN df1.date < '2024-12-16' AND df1.date > '2024-12-09' THEN 'Week 8'
+                        ELSE '' END 
+                    || ']' 
+                    || Case
+                            when df1.Traded = 'Y' and df1.date > df1.TradeDate THEN df1.TradeTeam
+                        ELSE df1.Team
+                    || ' vs ' 
+                    || df2.Team 
+                    || '(' 
+                    || df1.League 
+                    || ')' 
+                AS match_name
             FROM df_games df1
             JOIN df_games df2
                 ON df2.id = df1.id
@@ -270,7 +284,10 @@ def create_matchhistory(df):
             [time_offensive_third],
             [inflicted],
             [taken],
-            FIRST_VALUE(match_name) OVER (PARTITION BY group_id) AS match_name,
+            Case 
+                when [group_id] = 's-tier-kg2memz8lb' then LAST_VALUE(match_name) OVER (PARTITION BY group_id) -- Edge Case lower tier playup is 1st in group
+                ELSE FIRST_VALUE(match_name) OVER (PARTITION BY group_id) 
+            END AS match_name,
             DENSE_RANK() OVER (PARTITION BY group_id ORDER BY date) AS game_number
         FROM RankedGames
         ORDER BY date ASC;
@@ -279,7 +296,7 @@ def create_matchhistory(df):
     # Execute the SQL query
     df_with_opponent = ps.sqldf(query, locals())
     # print(df_with_opponent.head(12))
-
+    
     df_with_opponent.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
 
         # Set game_mode based on match_name
@@ -377,7 +394,7 @@ def create_matchhistory(df):
         Team2_goals = row['Goals_Scored_Team_opponent']
 
         if game_mode == '3v3':
-            if match_history.at[index, 'match_name'][1:7] != 'Week 1': # Preseason check
+            if match_history.at[index, 'match_name'][1:7] != 'Week 1': # Regular season
                 # print(match_history.at[index, 'match_name'][1:7])
                 if (Team1_Series < 3 & Team2_Series < 3):
                     continue
@@ -387,7 +404,16 @@ def create_matchhistory(df):
                     match_history.at[index, 'Points'] = 8
                 elif ((Team1_Series == 3)|(Team2_Series == 3)):
                     match_history.at[index, 'Points'] = 6
-            else: match_history.at[index, 'Points'] = 0
+            elif match_history.at[index, 'match_name'][1:7] == 'Week 1': # Preseason 
+                # print(match_history.at[index, 'match_name'][1:7])
+                if (Team1_Series < 3 & Team2_Series < 3):
+                    continue
+                elif(((Team1_Series == 3) & (Team2_Series == 0) & (Team2_goals == 0))|((Team2_Series == 3) & (Team1_Series == 0) & (Team1_goals == 0))):
+                    match_history.at[index, 'Points']= 0.01
+                elif(((Team1_Series == 3) & (Team2_Series == 0))|((Team2_Series == 3) & (Team1_Series == 0))):
+                    match_history.at[index, 'Points'] = 0.01
+                elif ((Team1_Series == 3)|(Team2_Series == 3)):
+                    match_history.at[index, 'Points'] = 0.01
         # match_history.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/results.csv')
     
     match_history = match_history[match_history['Points']>0]
@@ -474,7 +500,10 @@ def merge_data(season_live_path, player_index_path):
     SELECT season_live.*, 
     coalesce(pi1.Team, pi2.Team) AS Team,
     coalesce(pi1.League, pi2.League) AS League,
-    coalesce(pi1.Discord,pi2.Discord) AS Discord
+    coalesce(pi1.Discord,pi2.Discord) AS Discord,
+    coalesce(pi1.Traded,pi2.Traded) AS [Traded],
+    coalesce(pi1.TradeDate,pi2.TradeDate) AS [TradeDate],
+    coalesce(pi1.TradedTeam,pi2.TradedTeam) AS [TradeTeam]
     FROM season_live
     LEFT JOIN player_index pi1 
         ON season_live.platform_id = pi1.platform_id
@@ -494,12 +523,13 @@ def insert_row(df,match_name,Team_team,Team_opponent,Series_Record_Team_team,Ser
 
 def admin_adjustments(match_history):
     # match_history = insert_row(match_history,'[Week 1]FarmersOnly vs Team XV(S)- Admin Adjust XV', 'FarmersOnly','Team XV',1,3,1-3,'3v3',8,10,6)
-    match_history = insert_row(match_history,'[Week 1]Bezos Bros vs Tai Lung Leopards(S)- FF', 'Bezos Bros','Tai Lung Leopards',3,0,3-0,'3v3',0,0,0)
+    match_history = insert_row(match_history,'[Week 1]Bezos Bros vs Tai Lung Leopards(S)- FF', 'Bezos Bros','Tai Lung Leopards',3,0,0-0,'3v3',0,0,0)
     match_history = insert_row(match_history,'[Week 1]Bezos Bros vs Tai Lung Leopards(C)- Match Not Reported', 'Bezos Bros','Tai Lung Leopards',3,0,3-0,'3v3',0,0,0)
     match_history = insert_row(match_history,'[Week 1]Big Pharma vs Megaminds(A)- Reverse Sweep', 'Big Pharma','Megaminds',3,0,3-0,'3v3',0,0,0)
     match_history = insert_row(match_history,'[Week 2]Big Pharma vs Ginyu Force(B)- Reverse Sweep', 'Big Pharma','Ginyu Force',0,3,0-3,'3v3',0,0,1)
     match_history = insert_row(match_history,'[Week 2]Megaminds vs Vectors(S)- Reverse Sweep', 'Megaminds','Vectors',0,3,0-3,'3v3',0,0,1)
     match_history = insert_row(match_history,'[Week 2]Bezos Bros vs King Koba(B)- Reverse Sweep', 'Bezos Bros','King Koba',0,3,0-3,'3v3',0,0,1)
+    match_history = insert_row(match_history,'[Week 3]King Koba vs Tai Lung Leopards(C)- Match Not Reported', 'King Koba','Tai Lung Leopards',3,0,3-0,'3v3',0,0,0)
     return match_history
 
 def player_superlatives(merged_data,player_index):
