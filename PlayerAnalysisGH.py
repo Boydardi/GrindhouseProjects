@@ -126,13 +126,11 @@ def create_matchhistory(df):
 
     query = """
         WITH TeamCounts AS (
-            -- Calculate the count of each team per platform_id for each game
             SELECT id, Team, COUNT(DISTINCT platform_id) AS platform_count
             FROM df_games
             GROUP BY id, Team
         ),
         RankedGames AS (
-            -- Join TeamCounts with df_games and replace 'Alternate' team based on platform counts
             SELECT DISTINCT
                 df1.*,
                 df2.Team AS Team_opponent,
@@ -160,8 +158,8 @@ def create_matchhistory(df):
                         ELSE '' END 
                     || ']' 
                     || Case
-                            when df1.Traded = 'Y' and df1.date > df1.TradeDate THEN df1.TradeTeam
-                        ELSE df1.Team
+                        when df1.Traded = 'Y' and df1.date > df1.TradeDate THEN df1.TradeTeam
+                        ELSE df1.Team END
                     || ' vs ' 
                     || df2.Team 
                     || '(' 
@@ -285,7 +283,7 @@ def create_matchhistory(df):
             [inflicted],
             [taken],
             Case 
-                when [group_id] = 's-tier-kg2memz8lb' then LAST_VALUE(match_name) OVER (PARTITION BY group_id) -- Edge Case lower tier playup is 1st in group
+                when [group_id] = 's-tier-kg2memz8lb' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
                 ELSE FIRST_VALUE(match_name) OVER (PARTITION BY group_id) 
             END AS match_name,
             DENSE_RANK() OVER (PARTITION BY group_id ORDER BY date) AS game_number
