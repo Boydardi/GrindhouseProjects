@@ -133,7 +133,10 @@ def create_matchhistory(df):
         RankedGames AS (
             SELECT DISTINCT
                 df1.*,
-                df2.Team AS Team_opponent,
+                CASE 
+                    when df2.Traded = 'Y' and df2.date > df2.TradeDate and df2.Team != df1.Team THEN df2.TradeTeam
+                    ELSE df2.Team
+                END AS Team_opponent,
                 CASE 
                     WHEN df1.Team = 'Alternate' THEN (
                         SELECT Team
@@ -172,6 +175,8 @@ def create_matchhistory(df):
                 AND df2.created = df1.created
             WHERE df1.Team <> df2.Team
             AND df2.Team <> 'Alternate'
+            AND df2.Team <> df1.Team
+            AND df1.Score > 2
         )
 
         SELECT DISTINCT 
@@ -284,10 +289,13 @@ def create_matchhistory(df):
             [taken],
             Case 
                 when [group_id] = 's-tier-kg2memz8lb' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
+                when [group_id] = 'b-tier-urdbj4gqci' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
+                when [group_id] = 'a-tier-eonpxtxguf' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
                 ELSE FIRST_VALUE(match_name) OVER (PARTITION BY group_id) 
             END AS match_name,
             DENSE_RANK() OVER (PARTITION BY group_id ORDER BY date) AS game_number
         FROM RankedGames
+        where Team_replaced <> Team_opponent
         ORDER BY date ASC;
     """
 
@@ -528,8 +536,10 @@ def admin_adjustments(match_history):
     match_history = insert_row(match_history,'[Week 2]Megaminds vs Vectors(S)- Reverse Sweep', 'Megaminds','Vectors',0,3,0-3,'3v3',0,0,1)
     match_history = insert_row(match_history,'[Week 2]Bezos Bros vs King Koba(B)- Reverse Sweep', 'Bezos Bros','King Koba',0,3,0-3,'3v3',0,0,1)
     match_history = insert_row(match_history,'[Week 3]King Koba vs Tai Lung Leopards(C)- Match Not Reported', 'King Koba','Tai Lung Leopards',3,0,3-0,'3v3',0,0,0)
-    match_history = insert_row(match_history,'[Week 4]Galactic Empire vs King Koba(B)- Reverse Sweep', 'Galactic Empire','King Koba',3,0,3-0,'3v3',0,0,1)
+    match_history = insert_row(match_history,'[Week 4]Galactic Empire vs King Koba(S)- Reverse Sweep', 'Galactic Empire','King Koba',3,0,3-0,'3v3',0,0,1)
+    match_history = insert_row(match_history,'[Week 4]Bezos Bros vs Vectors(S)- Reverse Sweep', 'Bezos Bros','Vectors',0,3,0-3,'3v3',0,0,1)
     match_history = insert_row(match_history,'[Week 4]Big Pharma vs Tai Lung Leopards(B)- FF', 'Big Pharma','Tai Lung Leopards',3,0,0-0,'3v3',0,0,8)
+    match_history = insert_row(match_history,'[Week 6]Bezos Bros vs Ginyu Force(S)- Reverse Sweep', 'Bezos Bros','Ginyu Force',0,3,0-0,'3v3',0,0,1)
     return match_history
 
 def player_superlatives(merged_data,player_index):
