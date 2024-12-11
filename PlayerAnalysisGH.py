@@ -132,11 +132,17 @@ def create_matchhistory(df):
         RankedGames AS (
             SELECT DISTINCT
                 df1.*,
+                case 
+                    when df1.[id] = '711762ab-f3d5-4382-a1b0-28519da1d873' then '2024-12-08T17:49:08-08:00' --BC messed this start time up
+                    else df1.[date]
+                end as [date_fixed],
                 CASE 
                     when df2.Traded = 'Y' and df2.date > df2.TradeDate and df2.Team != df1.Team THEN df2.TradeTeam
                     ELSE df2.Team
                 END AS Team_opponent,
                 CASE 
+                    WHEN df1.Traded = 'Y' and df1.date > df1.TradeDate THEN df1.TradeTeam
+                    WHEN df1.[group_id] = 'c-tier-2yytq7nin4' AND df1.platform_id = '76561198412635657' then 'Tai Lung Leopards' -- Edge case where a team with a traded player and a dedicated alternate play at the same time
                     WHEN df1.Team = 'Alternate' THEN (
                         SELECT Team
                         FROM TeamCounts tc
@@ -144,7 +150,6 @@ def create_matchhistory(df):
                         ORDER BY platform_count DESC
                         LIMIT 1
                     )
-                    when df1.Traded = 'Y' and df1.date > df1.TradeDate THEN df1.TradeTeam
                     ELSE df1.Team
                 END AS Team_replaced,
                 '[' 
@@ -190,7 +195,7 @@ def create_matchhistory(df):
             [overtime],
             [season],
             [season_type],
-            [date],
+            [date_fixed]as [date],
             [start_time],
             [end_time],
             [Discord],
@@ -290,9 +295,10 @@ def create_matchhistory(df):
                 when [group_id] = 's-tier-kg2memz8lb' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
                 when [group_id] = 'b-tier-urdbj4gqci' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
                 when [group_id] = 'a-tier-eonpxtxguf' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
+                when [group_id] = 'c-tier-2yytq7nin4' then LAST_VALUE(match_name) OVER (PARTITION BY group_id) --A traded with a designated alternate
                 ELSE FIRST_VALUE(match_name) OVER (PARTITION BY group_id) 
             END AS match_name,
-            DENSE_RANK() OVER (PARTITION BY group_id ORDER BY date) AS game_number
+            DENSE_RANK() OVER (PARTITION BY group_id ORDER BY date_fixed) AS game_number
         FROM RankedGames
         where Team_replaced <> Team_opponent
         ORDER BY date ASC;
@@ -539,7 +545,7 @@ def admin_adjustments(match_history):
     match_history = insert_row(match_history,'[Week 4]Bezos Bros vs Vectors(S)- Reverse Sweep', 'Bezos Bros','Vectors',0,3,0-3,'3v3',0,0,1)
     match_history = insert_row(match_history,'[Week 4]Big Pharma vs Tai Lung Leopards(B)- FF', 'Big Pharma','Tai Lung Leopards',3,0,0-0,'3v3',0,0,8)
     match_history = insert_row(match_history,'[Week 6]Bezos Bros vs Ginyu Force(S)- Reverse Sweep', 'Bezos Bros','Ginyu Force',0,3,0-0,'3v3',0,0,1)
-    match_history = insert_row(match_history,'[Week 7]Vectors vs Big Pharma(S)- Incomplete Replay Group','Vectors','Big Pharma',3,2,3-2,'3v3',0,0,6)
+    match_history = insert_row(match_history,'[Week 7]Big Pharma vs Vectors(S)- Incomplete Replay Group','Big Pharma','Vectors',2,3,2-3,'3v3',0,0,6)
     return match_history
 
 def player_superlatives(merged_data,player_index):
