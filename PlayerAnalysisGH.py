@@ -118,7 +118,6 @@ def create_matchhistory(df):
         'taken'
         ]].copy()
 
-    
     # df.to_csv('GCBLeague/GrindhouseProjects/initialresults.csv')
     # Convert 'created' to datetime and set timezone
     df_games['created'] = pd.to_datetime(df_games['created']).dt.tz_convert('UTC')
@@ -529,7 +528,7 @@ def insert_row(df,match_name,Team_team,Team_opponent,Series_Record_Team_team,Ser
 
 def admin_adjustments(match_history):
     # match_history = insert_row(match_history,'[Week 1]FarmersOnly vs Team XV(S)- Admin Adjust XV', 'FarmersOnly','Team XV',1,3,1-3,'3v3',8,10,6)
-    match_history = insert_row(match_history,'[Week 1]Bezos Bros vs Tai Lung Leopards(S)- FF', 'Bezos Bros','Tai Lung Leopards',3,0,0-0,'3v3',0,0,0)
+    match_history = insert_row(match_history,'[Week 1]Bezos Bros vs Tai Lung Leopards(S)- FF', 'Bezos Bros','Tai Lung Leopards',3,00,0-0,'3v3',0,0,0)
     match_history = insert_row(match_history,'[Week 1]Bezos Bros vs Tai Lung Leopards(C)- Match Not Reported', 'Bezos Bros','Tai Lung Leopards',3,0,3-0,'3v3',0,0,0)
     match_history = insert_row(match_history,'[Week 1]Big Pharma vs Megaminds(A)- Reverse Sweep', 'Big Pharma','Megaminds',3,0,3-0,'3v3',0,0,0)
     match_history = insert_row(match_history,'[Week 2]Big Pharma vs Ginyu Force(B)- Reverse Sweep', 'Big Pharma','Ginyu Force',0,3,0-3,'3v3',0,0,1)
@@ -540,6 +539,7 @@ def admin_adjustments(match_history):
     match_history = insert_row(match_history,'[Week 4]Bezos Bros vs Vectors(S)- Reverse Sweep', 'Bezos Bros','Vectors',0,3,0-3,'3v3',0,0,1)
     match_history = insert_row(match_history,'[Week 4]Big Pharma vs Tai Lung Leopards(B)- FF', 'Big Pharma','Tai Lung Leopards',3,0,0-0,'3v3',0,0,8)
     match_history = insert_row(match_history,'[Week 6]Bezos Bros vs Ginyu Force(S)- Reverse Sweep', 'Bezos Bros','Ginyu Force',0,3,0-0,'3v3',0,0,1)
+    match_history = insert_row(match_history,'[Week 7]Vectors vs Big Pharma(S)- Incomplete Replay Group','Vectors','Big Pharma',3,2,3-2,'3v3',0,0,6)
     return match_history
 
 def player_superlatives(merged_data,player_index):
