@@ -161,7 +161,10 @@ def create_matchhistory(df):
                         WHEN df1.date < '2024-11-25' AND df1.date > '2024-11-18' THEN 'Week 5'
                         WHEN df1.date < '2024-12-02' AND df1.date > '2024-11-25' THEN 'Week 6'
                         WHEN df1.date < '2024-12-09' AND df1.date > '2024-12-02' THEN 'Week 7'
-                        WHEN df1.date < '2024-12-16' AND df1.date > '2024-12-09' THEN 'Week 8'
+                        WHEN df1.date < '2024-12-17' AND df1.date > '2024-12-09' THEN 'Week 8'
+                        WHEN df1.date < '2025-01-07' AND df1.date > '2025-01-01' THEN 'Playoffs R1'
+                        WHEN df1.date < '2025-01-14' AND df1.date > '2025-01-08' THEN 'Playoffs R2'
+                        WHEN df1.date < '2025-01-21' AND df1.date > '2025-01-14' THEN 'Playoffs R3'
                         ELSE '' END 
                     || ']' 
                     || Case
@@ -404,27 +407,38 @@ def create_matchhistory(df):
         Team1_goals = row['Goals_Scored_Team_team']
         Team2_goals = row['Goals_Scored_Team_opponent']
 
-        if game_mode == '3v3':
-            if match_history.at[index, 'match_name'][1:7] != 'Week 1': # Regular season
+        # print(match_history.at[index, 'match_name'][1:7])
+        if match_history.at[index, 'match_name'][1:9] == 'Playoffs': # Playoffs 
+            # print(match_history.at[index, 'match_name'][1:9])
+            if (Team1_Series < 4 & Team2_Series < 4):
+                continue
+            elif(((Team1_Series == 4) & (Team2_Series == 0) & (Team2_goals == 0))|((Team2_Series == 4) & (Team1_Series == 0) & (Team1_goals == 0))):
+                match_history.at[index, 'Points']= 10
+            elif(((Team1_Series == 4) & (Team2_Series == 0))|((Team2_Series == 4) & (Team1_Series == 0))):
+                match_history.at[index, 'Points'] = 8
+            elif ((Team1_Series == 4)|(Team2_Series == 4)):
+                match_history.at[index, 'Points'] = 6
+
+        elif match_history.at[index, 'match_name'][1:7] != 'Week 1': # Regular season
                 # print(match_history.at[index, 'match_name'][1:7])
-                if (Team1_Series < 3 & Team2_Series < 3):
-                    continue
-                elif(((Team1_Series == 3) & (Team2_Series == 0) & (Team2_goals == 0))|((Team2_Series == 3) & (Team1_Series == 0) & (Team1_goals == 0))):
-                    match_history.at[index, 'Points']= 10
-                elif(((Team1_Series == 3) & (Team2_Series == 0))|((Team2_Series == 3) & (Team1_Series == 0))):
-                    match_history.at[index, 'Points'] = 8
-                elif ((Team1_Series == 3)|(Team2_Series == 3)):
-                    match_history.at[index, 'Points'] = 6
-            elif match_history.at[index, 'match_name'][1:7] == 'Week 1': # Preseason 
+            if (Team1_Series < 3 & Team2_Series < 3):
+                continue
+            elif(((Team1_Series == 3) & (Team2_Series == 0) & (Team2_goals == 0))|((Team2_Series == 3) & (Team1_Series == 0) & (Team1_goals == 0))):
+                match_history.at[index, 'Points']= 10
+            elif(((Team1_Series == 3) & (Team2_Series == 0))|((Team2_Series == 3) & (Team1_Series == 0))):
+                match_history.at[index, 'Points'] = 8
+            elif ((Team1_Series == 3)|(Team2_Series == 3)):
+                match_history.at[index, 'Points'] = 6
+        elif match_history.at[index, 'match_name'][1:7] == 'Week 1': # Preseason 
                 # print(match_history.at[index, 'match_name'][1:7])
-                if (Team1_Series < 3 & Team2_Series < 3):
-                    continue
-                elif(((Team1_Series == 3) & (Team2_Series == 0) & (Team2_goals == 0))|((Team2_Series == 3) & (Team1_Series == 0) & (Team1_goals == 0))):
-                    match_history.at[index, 'Points']= 0.01
-                elif(((Team1_Series == 3) & (Team2_Series == 0))|((Team2_Series == 3) & (Team1_Series == 0))):
-                    match_history.at[index, 'Points'] = 0.01
-                elif ((Team1_Series == 3)|(Team2_Series == 3)):
-                    match_history.at[index, 'Points'] = 0.01
+            if (Team1_Series < 3 & Team2_Series < 3):
+                continue
+            elif(((Team1_Series == 3) & (Team2_Series == 0) & (Team2_goals == 0))|((Team2_Series == 3) & (Team1_Series == 0) & (Team1_goals == 0))):
+                match_history.at[index, 'Points']= 0.01
+            elif(((Team1_Series == 3) & (Team2_Series == 0))|((Team2_Series == 3) & (Team1_Series == 0))):
+                match_history.at[index, 'Points'] = 0.01
+            elif ((Team1_Series == 3)|(Team2_Series == 3)):
+                match_history.at[index, 'Points'] = 0.01
         # match_history.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/results.csv')
     
     match_history = match_history[match_history['Points']>0]
@@ -545,7 +559,7 @@ def admin_adjustments(match_history):
     match_history = insert_row(match_history,'[Week 4]Bezos Bros vs Vectors(S)- Reverse Sweep', 'Bezos Bros','Vectors',0,3,0-3,'3v3',0,0,1)
     match_history = insert_row(match_history,'[Week 4]Big Pharma vs Tai Lung Leopards(B)- FF', 'Big Pharma','Tai Lung Leopards',3,0,0-0,'3v3',0,0,8)
     match_history = insert_row(match_history,'[Week 6]Bezos Bros vs Ginyu Force(S)- Reverse Sweep', 'Bezos Bros','Ginyu Force',0,3,0-0,'3v3',0,0,1)
-    match_history = insert_row(match_history,'[Week 7]Big Pharma vs Vectors(S)- Incomplete Replay Group','Big Pharma','Vectors',2,3,2-3,'3v3',0,0,6)
+    match_history = insert_row(match_history,'[Week 8]Galactic Empire vs Vectors(B)- Match Not Reported', 'Galactic Empire','Vectors',3,0,3-0,'3v3',0,0,0)
     return match_history
 
 def player_superlatives(merged_data,player_index):
