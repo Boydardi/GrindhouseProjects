@@ -560,6 +560,8 @@ def admin_adjustments(match_history):
     match_history = insert_row(match_history,'[Week 4]Big Pharma vs Tai Lung Leopards(B)- FF', 'Big Pharma','Tai Lung Leopards',3,0,0-0,'3v3',0,0,8)
     match_history = insert_row(match_history,'[Week 6]Bezos Bros vs Ginyu Force(S)- Reverse Sweep', 'Bezos Bros','Ginyu Force',0,3,0-0,'3v3',0,0,1)
     match_history = insert_row(match_history,'[Week 8]Galactic Empire vs Vectors(B)- Match Not Reported', 'Galactic Empire','Vectors',3,0,3-0,'3v3',0,0,0)
+    match_history = insert_row(match_history,'[Playoffs R1]Galactic Empire vs Bezos Bros(A)- Win On Ruling Technicality', 'Galactic Empire','Bezos Bros',4,3,4-3,'3v3',0,0,6)
+    match_history = insert_row(match_history,'[Playoffs R2]Big Pharma vs Galactic Empire(C)- Reverse Sweep', 'Big Pharma','Galactic Empire',4,3,4-3,'3v3',0,0,1)
     return match_history
 
 def player_superlatives(merged_data,player_index):

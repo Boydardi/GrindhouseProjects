@@ -277,13 +277,14 @@ def replayStructure(replayType,Links):
 
     return replays
 
+
 if __name__ == "__main__":
 
     with open('C:/Users/conno/Documents/Coding/GCBLeague/api_key.txt',"r") as f:
         apikey = f.readline()
 
     api = bc.Api(apikey)
-    rate_limiter = RateLimiter(max_calls=4, period=1)
+    rate_limiter = RateLimiter(max_calls=4, period=1) #Patreon 
 
     inpath = 'C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/input.txt'
     outpath = 'C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/seasonData.csv'
