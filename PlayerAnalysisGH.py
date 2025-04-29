@@ -141,8 +141,8 @@ def create_matchhistory(df):
                     ELSE df2.Team
                 END AS Team_opponent,
                 CASE 
-                    WHEN df1.Traded = 'Y' and df1.date > df1.TradeDate THEN df1.TradeTeam
-                    WHEN df1.[group_id] = 'c-tier-2yytq7nin4' AND df1.platform_id = '76561198412635657' then 'Tai Lung Leopards' -- Edge case where a team with a traded player and a dedicated alternate play at the same time
+                    -- WHEN df1.Traded = 'Y' and df1.date > df1.TradeDate THEN df1.TradeTeam
+                    -- WHEN df1.[group_id] = 'c-tier-2yytq7nin4' AND df1.platform_id = '76561198412635657' then 'Tai Lung Leopards' -- Edge case where a team with a traded player and a dedicated alternate play at the same time
                     WHEN df1.Team = 'Alternate' THEN (
                         SELECT Team
                         FROM TeamCounts tc
@@ -154,17 +154,14 @@ def create_matchhistory(df):
                 END AS Team_replaced,
                 '[' 
                     || CASE
-                        WHEN df1.date < '2024-10-29' THEN 'Week 1'
-                        WHEN df1.date < '2024-11-04' AND df1.date > '2024-10-29' THEN 'Week 2'
-                        WHEN df1.date < '2024-11-11' AND df1.date > '2024-11-04' THEN 'Week 3'
-                        WHEN df1.date < '2024-11-18' AND df1.date > '2024-11-11' THEN 'Week 4'
-                        WHEN df1.date < '2024-11-25' AND df1.date > '2024-11-18' THEN 'Week 5'
-                        WHEN df1.date < '2024-12-02' AND df1.date > '2024-11-25' THEN 'Week 6'
-                        WHEN df1.date < '2024-12-09' AND df1.date > '2024-12-02' THEN 'Week 7'
-                        WHEN df1.date < '2024-12-17' AND df1.date > '2024-12-09' THEN 'Week 8'
-                        WHEN df1.date < '2025-01-07' AND df1.date > '2025-01-01' THEN 'Playoffs R1'
-                        WHEN df1.date < '2025-01-14' AND df1.date > '2025-01-08' THEN 'Playoffs R2'
-                        WHEN df1.date < '2025-01-21' AND df1.date > '2025-01-14' THEN 'Playoffs R3'
+                        WHEN df1.date < '2025-04-29' THEN 'Week 1'
+                        WHEN df1.date < '2025-05-06' AND df1.date > '2025-04-29' THEN 'Week 2'
+                        WHEN df1.date < '2025-05-13' AND df1.date > '2025-05-06' THEN 'Week 3'
+                        WHEN df1.date < '2025-05-20' AND df1.date > '2025-05-13' THEN 'Week 4'
+                        WHEN df1.date < '2025-05-27' AND df1.date > '2025-05-20' THEN 'Week 5'
+                        WHEN df1.date < '2025-06-03' AND df1.date > '2025-05-27' THEN 'Week 6'
+                        WHEN df1.date < '2025-06-10' AND df1.date > '2025-06-03' THEN 'Playoffs R1'
+                        WHEN df1.date < '2025-06-17' AND df1.date > '2025-06-10' THEN 'Playoffs R2'
                         ELSE '' END 
                     || ']' 
                     || Case
@@ -548,20 +545,20 @@ def insert_row(df,match_name,Team_team,Team_opponent,Series_Record_Team_team,Ser
 
 def admin_adjustments(match_history):
     # match_history = insert_row(match_history,'[Week 1]FarmersOnly vs Team XV(S)- Admin Adjust XV', 'FarmersOnly','Team XV',1,3,1-3,'3v3',8,10,6)
-    match_history = insert_row(match_history,'[Week 1]Bezos Bros vs Tai Lung Leopards(S)- FF', 'Bezos Bros','Tai Lung Leopards',3,00,0-0,'3v3',0,0,0)
-    match_history = insert_row(match_history,'[Week 1]Bezos Bros vs Tai Lung Leopards(C)- Match Not Reported', 'Bezos Bros','Tai Lung Leopards',3,0,3-0,'3v3',0,0,0)
-    match_history = insert_row(match_history,'[Week 1]Big Pharma vs Megaminds(A)- Reverse Sweep', 'Big Pharma','Megaminds',3,0,3-0,'3v3',0,0,0)
-    match_history = insert_row(match_history,'[Week 2]Big Pharma vs Ginyu Force(B)- Reverse Sweep', 'Big Pharma','Ginyu Force',0,3,0-3,'3v3',0,0,1)
-    match_history = insert_row(match_history,'[Week 2]Megaminds vs Vectors(S)- Reverse Sweep', 'Megaminds','Vectors',0,3,0-3,'3v3',0,0,1)
-    match_history = insert_row(match_history,'[Week 2]Bezos Bros vs King Koba(B)- Reverse Sweep', 'Bezos Bros','King Koba',0,3,0-3,'3v3',0,0,1)
-    match_history = insert_row(match_history,'[Week 3]King Koba vs Tai Lung Leopards(C)- Match Not Reported', 'King Koba','Tai Lung Leopards',3,0,3-0,'3v3',0,0,0)
-    match_history = insert_row(match_history,'[Week 4]Galactic Empire vs King Koba(S)- Reverse Sweep', 'Galactic Empire','King Koba',3,0,3-0,'3v3',0,0,1)
-    match_history = insert_row(match_history,'[Week 4]Bezos Bros vs Vectors(S)- Reverse Sweep', 'Bezos Bros','Vectors',0,3,0-3,'3v3',0,0,1)
-    match_history = insert_row(match_history,'[Week 4]Big Pharma vs Tai Lung Leopards(B)- FF', 'Big Pharma','Tai Lung Leopards',3,0,0-0,'3v3',0,0,8)
-    match_history = insert_row(match_history,'[Week 6]Bezos Bros vs Ginyu Force(S)- Reverse Sweep', 'Bezos Bros','Ginyu Force',0,3,0-0,'3v3',0,0,1)
-    match_history = insert_row(match_history,'[Week 8]Galactic Empire vs Vectors(B)- Match Not Reported', 'Galactic Empire','Vectors',3,0,3-0,'3v3',0,0,0)
-    match_history = insert_row(match_history,'[Playoffs R1]Galactic Empire vs Bezos Bros(A)- Win On Ruling Technicality', 'Galactic Empire','Bezos Bros',4,3,4-3,'3v3',0,0,6)
-    match_history = insert_row(match_history,'[Playoffs R2]Big Pharma vs Galactic Empire(C)- Reverse Sweep', 'Big Pharma','Galactic Empire',4,3,4-3,'3v3',0,0,1)
+    # match_history = insert_row(match_history,'[Week 1]Bezos Bros vs Tai Lung Leopards(S)- FF', 'Bezos Bros','Tai Lung Leopards',3,00,0-0,'3v3',0,0,0)
+    # match_history = insert_row(match_history,'[Week 1]Bezos Bros vs Tai Lung Leopards(C)- Match Not Reported', 'Bezos Bros','Tai Lung Leopards',3,0,3-0,'3v3',0,0,0)
+    # match_history = insert_row(match_history,'[Week 1]Big Pharma vs Megaminds(A)- Reverse Sweep', 'Big Pharma','Megaminds',3,0,3-0,'3v3',0,0,0)
+    # match_history = insert_row(match_history,'[Week 2]Big Pharma vs Ginyu Force(B)- Reverse Sweep', 'Big Pharma','Ginyu Force',0,3,0-3,'3v3',0,0,1)
+    # match_history = insert_row(match_history,'[Week 2]Megaminds vs Vectors(S)- Reverse Sweep', 'Megaminds','Vectors',0,3,0-3,'3v3',0,0,1)
+    # match_history = insert_row(match_history,'[Week 2]Bezos Bros vs King Koba(B)- Reverse Sweep', 'Bezos Bros','King Koba',0,3,0-3,'3v3',0,0,1)
+    # match_history = insert_row(match_history,'[Week 3]King Koba vs Tai Lung Leopards(C)- Match Not Reported', 'King Koba','Tai Lung Leopards',3,0,3-0,'3v3',0,0,0)
+    # match_history = insert_row(match_history,'[Week 4]Galactic Empire vs King Koba(S)- Reverse Sweep', 'Galactic Empire','King Koba',3,0,3-0,'3v3',0,0,1)
+    # match_history = insert_row(match_history,'[Week 4]Bezos Bros vs Vectors(S)- Reverse Sweep', 'Bezos Bros','Vectors',0,3,0-3,'3v3',0,0,1)
+    # match_history = insert_row(match_history,'[Week 4]Big Pharma vs Tai Lung Leopards(B)- FF', 'Big Pharma','Tai Lung Leopards',3,0,0-0,'3v3',0,0,8)
+    # match_history = insert_row(match_history,'[Week 6]Bezos Bros vs Ginyu Force(S)- Reverse Sweep', 'Bezos Bros','Ginyu Force',0,3,0-0,'3v3',0,0,1)
+    # match_history = insert_row(match_history,'[Week 8]Galactic Empire vs Vectors(B)- Match Not Reported', 'Galactic Empire','Vectors',3,0,3-0,'3v3',0,0,0)
+    # match_history = insert_row(match_history,'[Playoffs R1]Galactic Empire vs Bezos Bros(A)- Win On Ruling Technicality', 'Galactic Empire','Bezos Bros',4,3,4-3,'3v3',0,0,6)
+    # match_history = insert_row(match_history,'[Playoffs R2]Big Pharma vs Galactic Empire(C)- Reverse Sweep', 'Big Pharma','Galactic Empire',4,3,4-3,'3v3',0,0,1)
     return match_history
 
 def player_superlatives(merged_data,player_index):
@@ -609,7 +606,7 @@ def player_superlatives(merged_data,player_index):
 
 if __name__ == "__main__":
     inpath = 'C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/seasonData.csv'
-    indexPath = 'C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/S2PlayerIndex.csv'
+    indexPath = 'C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/S3PlayerIndex.csv'
 
     merged_data = merge_data(inpath, indexPath)
     # merged_data.to_csv('merged_data.csv')
