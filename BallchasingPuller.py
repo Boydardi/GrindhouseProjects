@@ -7,7 +7,7 @@ from os.path import exists
 from ratelimiter import RateLimiter
 import regex as re
 import uuid
-
+from datetime import datetime
 
 def use_regex(input_text):
     pattern = re.compile(r"[a-zA-Z]+", re.IGNORECASE)
@@ -304,7 +304,9 @@ if __name__ == "__main__":
     final_df = pd.DataFrame()
     final_df = pd.concat([final_df,process_individual_replays(replays)], ignore_index=True)
     final_df = pd.concat([final_df,process_group_replays(groups)], ignore_index=True)
-    
+    final_df['ETL'] = datetime.now()
+
+    print(final_df)
     if exists(outpath):
         final_df.to_csv(outpath, mode='a', index=False, header=False)
     else:
