@@ -135,17 +135,10 @@ def get_players_data(replay, team):
         demo.append(s)
         dfdemo = pd.DataFrame(demo)
 
-
     dfcombined = dfcombined.join(dfboost, how='left')
     dfcombined = dfcombined.join(dfmove, how='left')
     dfcombined = dfcombined.join(dfpos, how='left')
     dfcombined = dfcombined.join(dfdemo, how='left')
-
-    # Add match outcomes to data rows
-    if dfcombined['goals'].sum() > dfcombined['goals_against'].sum()/3:
-        df_meta['game_outcome'] = 'W'
-    else:
-        df_meta['game_outcome'] = 'L'
 
     df_meta['uid'] = [uuid.uuid4() for _ in range(len(df_meta))]
     
@@ -169,11 +162,17 @@ def get_players_data(replay, team):
         'name',
         'car_id',
         'car_name',
-        'team_name',
-        'game_outcome'
+        'team_name'
     ]]
 
     df_final = df_meta.join(dfcombined, how='left')
+    df_final = df_final[df_final['score']>2]
+     # Add match outcomes to data rows
+    if df_final['goals'].sum() > df_final['goals_against'].sum()/3:
+        df_final['game_outcome'] = 'W'
+    else:
+        df_final['game_outcome'] = 'L'
+
     return df_final
 
 def get_match_data(replay):
@@ -306,7 +305,6 @@ if __name__ == "__main__":
     final_df = pd.concat([final_df,process_group_replays(groups)], ignore_index=True)
     final_df['ETL'] = datetime.now()
 
-    print(final_df)
     if exists(outpath):
         final_df.to_csv(outpath, mode='a', index=False, header=False)
     else:
