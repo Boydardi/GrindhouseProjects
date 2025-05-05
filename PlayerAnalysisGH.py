@@ -2,6 +2,8 @@ import pandas as pd
 from os.path import exists
 import pandasql as ps
 from datetime import datetime
+import uuid
+import random
 debug = 1
 
 def create_matchhistory(df):
@@ -121,7 +123,7 @@ def create_matchhistory(df):
     # df.to_csv('GCBLeague/GrindhouseProjects/initialresults.csv')
     # Convert 'created' to datetime and set timezone
     df_games['created'] = pd.to_datetime(df_games['created']).dt.tz_convert('UTC')
-    df_games.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/results.csv')
+    # df_games.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/results.csv')
 
     query = """
         WITH TeamCounts AS (
@@ -395,7 +397,7 @@ def create_matchhistory(df):
     match_history['Goals_Scored_Team_opponent'] = match_history.groupby('match_name')['team_goals_opponent'].transform('sum')
     match_history.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/full_match_history.csv')
     match_history['Points'] = None
-    match_history.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/results.csv')
+    # match_history.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/results.csv')
     rSweepFlag = False
     for index,row in match_history.iterrows():
         game_mode = row['game_mode']
@@ -543,22 +545,107 @@ def insert_row(df,match_name,Team_team,Team_opponent,Series_Record_Team_team,Ser
     df = df.sort_index(ascending=True)
     return df
 
+def create_blank_matches(merged_data, match_name, Created, Team, Gameoutcome, Opponents, games, League):
+    # Load the player index
+    player_index = pd.read_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/S3PlayerIndex.csv')
+
+# Load player index
+    player_index = pd.read_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/S3PlayerIndex.csv')
+
+    # Filter valid players in league
+    players_in_league = player_index[(player_index['League'] == League) & (player_index['Team'].notna())]
+
+    # Separate teams
+    team_players = players_in_league[players_in_league['Team'] == Team]['Discord'].dropna().unique().tolist()
+    opp_players = players_in_league[players_in_league['Team'] == Opponents]['Discord'].dropna().unique().tolist()
+
+    # Sample players
+    selected_team_players = random.sample(team_players, min(3, len(team_players)))
+    selected_opp_players = random.sample(opp_players, min(3, len(opp_players)))
+
+    # Time formatting
+    created_dt = pd.to_datetime(Created)
+    date_str = created_dt.date().isoformat()
+    start_time = created_dt.isoformat()
+    end_time = created_dt.isoformat()
+
+    # Base row template
+    blank_template = {col: 0 for col in merged_data.columns}
+    blank_template.update({
+        'match_type': 'Private',
+        'team_size': 3,
+        'created': Created,
+        'date': date_str,
+        'start_time': start_time,
+        'end_time': end_time,
+        'season': 18,
+        'season_type': 'free2play',
+        'duration': 0,
+        'overtime': 0,
+        'title': f"{date_str} {Team} Private {Gameoutcome}",
+        'match_name': match_name,
+        'ETL': 0,
+        'League': League
+    })
+
+    records = []
+
+    # Helper function
+    def build_row(player_name, actual_team, game_number):
+        player_data = player_index[player_index['Discord'] == player_name].iloc[0]
+        listed_team = player_data.get('Team', '')
+        is_opponent = listed_team == Opponents
+
+        player_team = listed_team
+        player_opp = Team if is_opponent else Opponents
+
+        outcome = (
+            'L' if Gameoutcome == 'W' and is_opponent else
+            'W' if Gameoutcome == 'L' and is_opponent else
+            Gameoutcome
+        )
+
+        row = blank_template.copy()
+        row.update({
+            'uid': str(uuid.uuid4()),
+            'id': str(uuid.uuid4()),
+            'group_id': str(uuid.uuid4()),
+            'name': player_name,
+            'Team': player_team,
+            'Team_opponent': player_opp,
+            'game_outcome': outcome,
+            'platform': str(player_data.get('Platform', '')),
+            'platform_id': str(player_data.get('platform_id', '')),
+            'Discord': player_name,
+            'Traded': player_data.get('Traded', 0),
+            'TradeDate': player_data.get('TradeDate', 0),
+            'TradeTeam': player_data.get('TradedTeam', 0),
+            'game_number': game_number
+        })
+        return row
+
+    for game_number in range(1, games + 1):
+        for player in selected_team_players:
+            records.append(build_row(player, Team, game_number))
+        for player in selected_opp_players:
+            records.append(build_row(player, Opponents, game_number))
+
+    # Generate DataFrame and clean columns
+    generateddf = pd.DataFrame(records)
+    generateddf = generateddf.loc[:, ~generateddf.columns.str.contains('^Unnamed')]
+
+    # Save (optional)
+    generateddf.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/gen_results.csv', index=False)
+
+    return generateddf
+
 def admin_adjustments(match_history):
-    # match_history = insert_row(match_history,'[Week 1]FarmersOnly vs Team XV(S)- Admin Adjust XV', 'FarmersOnly','Team XV',1,3,1-3,'3v3',8,10,6)
-    # match_history = insert_row(match_history,'[Week 1]Bezos Bros vs Tai Lung Leopards(S)- FF', 'Bezos Bros','Tai Lung Leopards',3,00,0-0,'3v3',0,0,0)
-    # match_history = insert_row(match_history,'[Week 1]Bezos Bros vs Tai Lung Leopards(C)- Match Not Reported', 'Bezos Bros','Tai Lung Leopards',3,0,3-0,'3v3',0,0,0)
-    # match_history = insert_row(match_history,'[Week 1]Big Pharma vs Megaminds(A)- Reverse Sweep', 'Big Pharma','Megaminds',3,0,3-0,'3v3',0,0,0)
-    # match_history = insert_row(match_history,'[Week 2]Big Pharma vs Ginyu Force(B)- Reverse Sweep', 'Big Pharma','Ginyu Force',0,3,0-3,'3v3',0,0,1)
-    # match_history = insert_row(match_history,'[Week 2]Megaminds vs Vectors(S)- Reverse Sweep', 'Megaminds','Vectors',0,3,0-3,'3v3',0,0,1)
-    # match_history = insert_row(match_history,'[Week 2]Bezos Bros vs King Koba(B)- Reverse Sweep', 'Bezos Bros','King Koba',0,3,0-3,'3v3',0,0,1)
-    # match_history = insert_row(match_history,'[Week 3]King Koba vs Tai Lung Leopards(C)- Match Not Reported', 'King Koba','Tai Lung Leopards',3,0,3-0,'3v3',0,0,0)
-    # match_history = insert_row(match_history,'[Week 4]Galactic Empire vs King Koba(S)- Reverse Sweep', 'Galactic Empire','King Koba',3,0,3-0,'3v3',0,0,1)
-    # match_history = insert_row(match_history,'[Week 4]Bezos Bros vs Vectors(S)- Reverse Sweep', 'Bezos Bros','Vectors',0,3,0-3,'3v3',0,0,1)
-    # match_history = insert_row(match_history,'[Week 4]Big Pharma vs Tai Lung Leopards(B)- FF', 'Big Pharma','Tai Lung Leopards',3,0,0-0,'3v3',0,0,8)
-    # match_history = insert_row(match_history,'[Week 6]Bezos Bros vs Ginyu Force(S)- Reverse Sweep', 'Bezos Bros','Ginyu Force',0,3,0-0,'3v3',0,0,1)
-    # match_history = insert_row(match_history,'[Week 8]Galactic Empire vs Vectors(B)- Match Not Reported', 'Galactic Empire','Vectors',3,0,3-0,'3v3',0,0,0)
-    # match_history = insert_row(match_history,'[Playoffs R1]Galactic Empire vs Bezos Bros(A)- Win On Ruling Technicality', 'Galactic Empire','Bezos Bros',4,3,4-3,'3v3',0,0,6)
-    # match_history = insert_row(match_history,'[Playoffs R2]Big Pharma vs Galactic Empire(C)- Reverse Sweep', 'Big Pharma','Galactic Empire',4,3,4-3,'3v3',0,0,1)
+    all_matches = pd.read_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
+    match_history = insert_row(match_history,'[Week 2]Nessies vs MobyDicks(C)- MobyDicks FF', 'Nessies','MobyDicks',3,0,3-0,'3v3',0,0,0)
+    combined = pd.concat([all_matches, create_blank_matches(merged_data,'[Week 2]Nessies vs MobyDicks(C)','2025-05-05 07:00:00','Nessies','W','MobyDicks',3,'C')], ignore_index=True)
+    combined = combined.drop(columns=['Unnamed: 0'])
+    combined.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
+
     return match_history
 
 def player_superlatives(merged_data,player_index):
