@@ -156,6 +156,8 @@ def create_matchhistory(df):
                 END AS Team_replaced,
                 '[' 
                     || CASE
+                        WHEN df1.group_id = 'b-tier-i05jpp2ouv' THEN 'Week 3'
+                        WHEN df1.group_id = 's-tier-krhmn4sd1o' THEN 'Week 4'
                         WHEN df1.date < '2025-04-29' THEN 'Week 1'
                         WHEN df1.date < '2025-05-06' AND df1.date > '2025-04-29' THEN 'Week 2'
                         WHEN df1.date < '2025-05-13' AND df1.date > '2025-05-06' THEN 'Week 3'
@@ -297,6 +299,8 @@ def create_matchhistory(df):
                 when [group_id] = 's-tier-kg2memz8lb' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
                 when [group_id] = 'b-tier-urdbj4gqci' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
                 when [group_id] = 'a-tier-eonpxtxguf' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
+                when [group_id] = 's-tier-z2477qtxdg' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
+                when [group_id] = 'a-tier-83e7pv66vb' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
                 when [group_id] = 'c-tier-2yytq7nin4' then LAST_VALUE(match_name) OVER (PARTITION BY group_id) --A traded with a designated alternate
                 ELSE FIRST_VALUE(match_name) OVER (PARTITION BY group_id) 
             END AS match_name,
@@ -549,17 +553,14 @@ def create_blank_matches(merged_data, match_name, Created, Team, Gameoutcome, Op
     # Load the player index
     player_index = pd.read_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/S3PlayerIndex.csv')
 
-# Load player index
-    player_index = pd.read_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/S3PlayerIndex.csv')
-
-    # Filter valid players in league
+    # Get list of unique players from the given League and Team
     players_in_league = player_index[(player_index['League'] == League) & (player_index['Team'].notna())]
 
-    # Separate teams
+    # Separate players by team
     team_players = players_in_league[players_in_league['Team'] == Team]['Discord'].dropna().unique().tolist()
     opp_players = players_in_league[players_in_league['Team'] == Opponents]['Discord'].dropna().unique().tolist()
 
-    # Sample players
+    # Sample 3 from each side, or fewer if not enough
     selected_team_players = random.sample(team_players, min(3, len(team_players)))
     selected_opp_players = random.sample(opp_players, min(3, len(opp_players)))
 
@@ -569,7 +570,10 @@ def create_blank_matches(merged_data, match_name, Created, Team, Gameoutcome, Op
     start_time = created_dt.isoformat()
     end_time = created_dt.isoformat()
 
-    # Base row template
+    # Generate the group_id once per match
+    match_group_id = str(uuid.uuid4())
+
+    # Define a template row with all columns from the merged_data
     blank_template = {col: 0 for col in merged_data.columns}
     blank_template.update({
         'match_type': 'Private',
@@ -585,31 +589,34 @@ def create_blank_matches(merged_data, match_name, Created, Team, Gameoutcome, Op
         'title': f"{date_str} {Team} Private {Gameoutcome}",
         'match_name': match_name,
         'ETL': 0,
-        'League': League
+        'League': League,
+        'group_id': match_group_id
     })
 
     records = []
 
-    # Helper function
-    def build_row(player_name, actual_team, game_number):
+    # Helper to build one row correctly based on PlayerIndex actual team
+    def build_row(player_name, game_id, game_number):
         player_data = player_index[player_index['Discord'] == player_name].iloc[0]
-        listed_team = player_data.get('Team', '')
-        is_opponent = listed_team == Opponents
+        player_team_actual = player_data['Team']
 
-        player_team = listed_team
-        player_opp = Team if is_opponent else Opponents
-
-        outcome = (
-            'L' if Gameoutcome == 'W' and is_opponent else
-            'W' if Gameoutcome == 'L' and is_opponent else
-            Gameoutcome
-        )
+        if player_team_actual == Team:
+            player_team = Team
+            player_opp = Opponents
+            outcome = Gameoutcome
+        elif player_team_actual == Opponents:
+            player_team = Opponents
+            player_opp = Team
+            outcome = 'L' if Gameoutcome == 'W' else 'W' if Gameoutcome == 'L' else Gameoutcome
+        else:
+            player_team = player_team_actual
+            player_opp = Team if player_team_actual != Team else Opponents
+            outcome = Gameoutcome
 
         row = blank_template.copy()
         row.update({
             'uid': str(uuid.uuid4()),
-            'id': str(uuid.uuid4()),
-            'group_id': str(uuid.uuid4()),
+            'id': game_id,  # Shared per game for all players
             'name': player_name,
             'Team': player_team,
             'Team_opponent': player_opp,
@@ -624,25 +631,36 @@ def create_blank_matches(merged_data, match_name, Created, Team, Gameoutcome, Op
         })
         return row
 
+    # Generate records for each game (generate one game_id per game)
     for game_number in range(1, games + 1):
+        game_id = str(uuid.uuid4())  # Shared id for this game
         for player in selected_team_players:
-            records.append(build_row(player, Team, game_number))
+            records.append(build_row(player, game_id, game_number))
         for player in selected_opp_players:
-            records.append(build_row(player, Opponents, game_number))
+            records.append(build_row(player, game_id, game_number))
 
-    # Generate DataFrame and clean columns
     generateddf = pd.DataFrame(records)
-    generateddf = generateddf.loc[:, ~generateddf.columns.str.contains('^Unnamed')]
+    print(generateddf.head(6))
 
-    # Save (optional)
     generateddf.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/gen_results.csv', index=False)
-
     return generateddf
 
 def admin_adjustments(match_history):
     all_matches = pd.read_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
     match_history = insert_row(match_history,'[Week 2]Nessies vs MobyDicks(C)- MobyDicks FF', 'Nessies','MobyDicks',3,0,3-0,'3v3',0,0,0)
     combined = pd.concat([all_matches, create_blank_matches(merged_data,'[Week 2]Nessies vs MobyDicks(C)','2025-05-05 07:00:00','Nessies','W','MobyDicks',3,'C')], ignore_index=True)
+    combined = combined.drop(columns=['Unnamed: 0'])
+    combined.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
+    
+    all_matches = pd.read_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
+    match_history = insert_row(match_history,'[Week 3]MobyDicks vs Jormungandr(S)- Jormungandr FF', 'MobyDicks','Jormungandr',3,0,3-0,'3v3',0,0,0)
+    combined = pd.concat([all_matches, create_blank_matches(merged_data,'[Week 3]MobyDicks vs Jormungandr(S)','2025-05-12 07:00:00','MobyDicks','W','Jormungandr',3,'S')], ignore_index=True)
+    combined = combined.drop(columns=['Unnamed: 0'])
+    combined.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
+
+    all_matches = pd.read_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
+    match_history = insert_row(match_history,'[Week 6]Nightstakers vs Jormungandr(C)- Jormungandr FF', 'Nightstalkers','Jormungandr',3,0,3-0,'3v3',0,0,0)
+    combined = pd.concat([all_matches, create_blank_matches(merged_data,'[Week 6]Nightstakers vs Jormungandr(C)','2025-06-02 07:00:00','Nightstalkers','W','Jormungandr',3,'C')], ignore_index=True)
     combined = combined.drop(columns=['Unnamed: 0'])
     combined.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
 

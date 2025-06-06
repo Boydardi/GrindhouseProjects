@@ -31,3 +31,4 @@ merged_df = pd.merge(
 
 # Preview the result
 print(merged_df.head())
+merged_df.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/Carl2Data.csv')
