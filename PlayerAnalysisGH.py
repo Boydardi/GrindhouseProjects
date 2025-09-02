@@ -301,10 +301,15 @@ def create_matchhistory(df):
                 when [group_id] = 'a-tier-eonpxtxguf' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
                 when [group_id] = 's-tier-z2477qtxdg' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
                 when [group_id] = 'a-tier-83e7pv66vb' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
+                when [group_id] = 's-tier-oi0nj2hsg1' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
                 when [group_id] = 'c-tier-2yytq7nin4' then LAST_VALUE(match_name) OVER (PARTITION BY group_id) --A traded with a designated alternate
                 ELSE FIRST_VALUE(match_name) OVER (PARTITION BY group_id) 
             END AS match_name,
-            DENSE_RANK() OVER (PARTITION BY group_id ORDER BY date_fixed) AS game_number
+            DENSE_RANK() OVER (PARTITION BY group_id ORDER BY date_fixed) AS game_number,
+            CASE 
+                WHEN date < Date('2025-06-03') THEN '5'
+                ELSE '7' 
+            END AS 'Series_Length'
         FROM RankedGames
         where Team_replaced <> Team_opponent
         ORDER BY date ASC;
@@ -460,6 +465,7 @@ def create_leaderboard(df):
 
     all_teams_performance['Wins'] = 0
     all_teams_performance['Losses'] = 0
+    all_teams_performance['Series Length'] = 5
 
     # Iterate through each match in final match history
     for index, row in df.iterrows():
@@ -590,7 +596,8 @@ def create_blank_matches(merged_data, match_name, Created, Team, Gameoutcome, Op
         'match_name': match_name,
         'ETL': 0,
         'League': League,
-        'group_id': match_group_id
+        'group_id': match_group_id,
+        'Series Length':5
     })
 
     records = []
@@ -627,7 +634,8 @@ def create_blank_matches(merged_data, match_name, Created, Team, Gameoutcome, Op
             'Traded': player_data.get('Traded', 0),
             'TradeDate': player_data.get('TradeDate', 0),
             'TradeTeam': player_data.get('TradedTeam', 0),
-            'game_number': game_number
+            'game_number': game_number,
+            'Series Length':5
         })
         return row
 
