@@ -3,76 +3,66 @@ import re
 import uuid
 from playwright.sync_api import sync_playwright
 
+# ---------- Players you already use ----------
 players = [
     ("Boydardi", "76561198054329313"),
     ("Othos", "76561198239409890"),
-    ("SquallOwl", "76561198072504992")
+    ("SquallOwl", "76561198072504992"),
 ]
 
-def extract_match_summary(player_name, text):
-    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+# ---------- Rank detection (works for Bronze → Elite) ----------
+RANK_WORDS = ["Bronze", "Silver", "Gold", "Platinum", "Diamond", "Master", "Elite"]
+RANK_REGEX = r"\b(" + "|".join(RANK_WORDS) + r")\b"
+rank_rx = re.compile(RANK_REGEX, re.I)
 
-    # ---- helpers ----
-    def to_int(s):
-        return int(s.replace(",", ""))
-
-    def parse_prev_int(idx):
-        if idx <= 0: 
-            return 0
-        m = re.search(r"\d{1,3}(?:,\d{3})*", lines[idx-1])
-        return to_int(m.group(0)) if m else 0
-
-    # A block starts at either "<n>W <m>L" OR "Win"/"Loss"
-    wl_rx = re.compile(r"(\d{1,3}(?:,\d{3})*)W\s+(\d{1,3}(?:,\d{3})*)L\b")
-    wl_or_result_rx = re.compile(r"^(\d{1,3}(?:,\d{3})*W\s+\d{1,3}(?:,\d{3})*L|Win|Loss)\b", re.I)
-    playlist_head_rx = re.compile(r"^(Ranked|Quickmatch|5v5|4v4|3v3)\b", re.I)
-
-    # Playwright helper: try to read the rank from the card's icon
-RANK_WORDS = ["Bronze","Silver","Gold","Platinum","Diamond","Master","Elite"]
-
-rank_rx = r"\b(" + "|".join(RANK_WORDS) + r")\b"
-
-async def get_rank_from_card(card):
-    # Collect accessible strings around images/svgs/spans
+def get_rank_from_card_sync(card):
+    """Read accessible labels on the icon inside a match card to infer rank."""
     texts = []
-
-    # Common attributes that may carry the label
-    for sel in [
-        'img[alt]',
-        '[aria-label]',
-        '[title]',
-        'svg[aria-label] use[aria-label]',  # sometimes nested
-    ]:
+    for sel in ['img[alt]', '[aria-label]', '[title]', 'svg[aria-label]', 'svg[title]']:
         nodes = card.locator(sel)
-        n = await nodes.count()
+        n = nodes.count()
         for i in range(n):
-            handle = await nodes.nth(i).element_handle()
-            if not handle:
-                continue
+            node = nodes.nth(i)
             for attr in ("alt", "aria-label", "title"):
                 try:
-                    val = await handle.get_attribute(attr)
+                    val = node.get_attribute(attr)
                 except Exception:
                     val = None
                 if val:
                     texts.append(val)
-
-    # Also grab any plain text near the icon row
+    # also include visible text as a fallback ("Elite" sometimes printed)
     try:
-        texts.append((await card.text_content()) or "")
+        t = card.inner_text()
+        if t:
+            texts.append(t)
     except Exception:
         pass
 
-    import re
-    rx = re.compile(rank_rx, re.I)
     for t in texts:
-        m = rx.search(t)
+        m = rank_rx.search(t)
         if m:
-            return m.group(1).title()  # normalized
+            return m.group(1).title()
     return None
 
+# ---------- Match-card text parser ----------
+def extract_match_summary(player_name, text, rank_override=None):
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
 
-    # ---- find block starts ----
+    def to_int(s):
+        return int(s.replace(",", ""))
+
+    def parse_prev_int(global_idx):
+        if global_idx <= 0:
+            return 0
+        m = re.search(r"\d{1,3}(?:,\d{3})*", lines[global_idx - 1])
+        return to_int(m.group(0)) if m else 0
+
+    wl_rx = re.compile(r"(\d{1,3}(?:,\d{3})*)W\s+(\d{1,3}(?:,\d{3})*)L\b")
+    wl_or_result_rx = re.compile(r"^(\d{1,3}(?:,\d{3})*W\s+\d{1,3}(?:,\d{3})*L|Win|Loss)\b", re.I)
+    playlist_head_rx = re.compile(r"^(Ranked|Quickmatch|5v5|4v4|3v3)\b", re.I)
+    visible_rank_rx = rank_rx
+
+    # split into blocks so stats don't bleed across cards
     starts = [i for i, ln in enumerate(lines) if wl_or_result_rx.match(ln)]
     rows = []
 
@@ -80,40 +70,38 @@ async def get_rank_from_card(card):
         end = starts[si + 1] if si + 1 < len(starts) else len(lines)
         block = lines[start:end]
 
-        # Defaults
         wins = losses = 0
         mvp = 0
         playlist = "Unknown"
         total_matches = None
         division = None
+        rank = None
         goals = passes = assists = tackles = saves = 0
 
-        # Header: either "<n>W <m>L" or "Win"/"Loss"
+        # header (either "nW mL" or "Win"/"Loss")
         m = wl_rx.search(block[0])
         if m:
-            wins = to_int(m.group(1))
-            losses = to_int(m.group(2))
+            wins = int(m.group(1).replace(",", ""))
+            losses = int(m.group(2).replace(",", ""))
         else:
-            # Single-match card
             if block[0].lower().startswith("win"):
                 wins, losses = 1, 0
             elif block[0].lower().startswith("loss"):
                 wins, losses = 0, 1
 
-        # MVPs can be on header line (e.g., "… 2 MVPs") or inside block
+        # MVPs on header
         mvph = re.search(r"(\d{1,3})\s*MVPs?\b", block[0], re.I)
         if mvph:
             mvp = int(mvph.group(1))
 
-        # Scan the rest of the block
+        # scan remainder of the block
         for ln in block[1:]:
             pl = playlist_head_rx.match(ln)
             if pl:
                 playlist = pl.group(1)
-                # "3v3 (14 matches)"
                 mm = re.search(r"\((\d{1,3}(?:,\d{3})*)\s*matches?\)", ln, re.I)
                 if mm:
-                    total_matches = to_int(mm.group(1))
+                    total_matches = int(mm.group(1).replace(",", ""))
 
             mv = re.search(r"(\d{1,3})\s*MVPs?\b", ln, re.I)
             if mv:
@@ -122,11 +110,14 @@ async def get_rank_from_card(card):
             if "Division" in ln:
                 division = ln  # keep raw text (e.g., "Division II")
 
-        # Stat tiles (value on previous line within the same block)
-        # loop over indices in the block so we can look back safely
+            rk = visible_rank_rx.search(ln)
+            if rk and rank is None:
+                rank = rk.group(1).title()
+
+        # stat tiles (value is previous line within same block)
         for j, ln in enumerate(block):
             if ln == "Goals":
-                goals = parse_prev_int(start + j)  # use global index for prev lookup
+                goals = parse_prev_int(start + j)
             elif ln == "Passes":
                 passes = parse_prev_int(start + j)
             elif ln == "Assists":
@@ -136,13 +127,8 @@ async def get_rank_from_card(card):
             elif ln == "Saves":
                 saves = parse_prev_int(start + j)
 
-        # If "(## matches)" wasn’t present, fall back:
         if total_matches is None:
-            # For single-match "Win/Loss" cards, force 1.
-            if (wins, losses) in [(1, 0), (0, 1)] and not m:
-                total_matches = 1
-            else:
-                total_matches = wins + losses
+            total_matches = 1 if (wins, losses) in [(1, 0), (0, 1)] and not m else wins + losses
 
         rows.append({
             "MatchGroupUID": str(uuid.uuid4()),
@@ -153,6 +139,7 @@ async def get_rank_from_card(card):
             "Total Matches": total_matches,
             "MVPs": mvp,
             "Division": division,
+            "Rank": rank_override or rank,   # <-- rank added
             "Goals": goals,
             "Passes": passes,
             "Assists": assists,
@@ -162,25 +149,29 @@ async def get_rank_from_card(card):
 
     return rows
 
+# ---------- Profile stats (unchanged other than your recent additions) ----------
 def extract_profile_stats(player_name, text, profile_url):
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     stats = {
         "Player Name": player_name,
         "Profile URL": profile_url,
 
-        # “Last N Games” block
+        # NEW
+        "Current Rank": None,
+
+        # “Last N Games”
         "Last # of Games": None,
         "Last # Games Win Rate": None,
         "Last # of Games Goals": None,
         "Last # of Games Saves": None,
 
-        # Playlist win rates
+        # Playlist WRs
         "Ranked Win Rate": None,
         "5v5 Win Rate": None,
         "4v4 Win Rate": None,
         "3v3 Win Rate": None,
 
-        # Overall tallies
+        # Lifetime tiles
         "Total Wins": None,
         "Total Losses": None,
         "Total Matches": None,
@@ -195,15 +186,9 @@ def extract_profile_stats(player_name, text, profile_url):
         "Total Shot %": None,
     }
 
-    # ---------- helpers ----------
     def parse_int(s):
         m = re.search(r"-?\d{1,3}(?:,\d{3})*", s)
-        if not m: 
-            return None
-        try:
-            return int(m.group(0).replace(",", ""))
-        except ValueError:
-            return None
+        return int(m.group(0).replace(",", "")) if m else None
 
     def parse_pct(s):
         m = re.search(r"(\d{1,3}(?:\.\d+)?)\s*%", s)
@@ -214,47 +199,51 @@ def extract_profile_stats(player_name, text, profile_url):
 
     def scan_near(idx, pattern, forward=8, backward=6):
         rx = re.compile(pattern, re.I)
-        # backward first (useful for Last N Games WR that precedes the label)
         for j in range(max(0, idx-backward), idx):
             m = rx.search(lines[j])
-            if m:
-                return m, j
-        # then forward
+            if m: return m, j
         for j in range(idx+1, min(len(lines), idx+1+forward)):
             m = rx.search(lines[j])
-            if m:
-                return m, j
+            if m: return m, j
         return None, None
 
-    # ---------- Last N Games ----------
+    # --- Current Rank from "Competitive Rating" panel ---
+    # Find the line with "Competitive Rating", then look nearby for a rank word.
+    for i, ln in enumerate(lines):
+        if "competitive rating" in ln.lower():
+            # Search downward a bit; some layouts put the rank on the next line
+            for j in range(i, min(i + 10, len(lines))):
+                m = _rank_rx.search(lines[j])
+                if m:
+                    # normalize (title-case)
+                    stats["Current Rank"] = m.group(1).title()
+                    break
+            break
+    # Fallback: if the header wasn't found, try the whole text once (safe, but still word-boundary)
+    if stats["Current Rank"] is None:
+        m = _rank_rx.search("\n".join(lines))
+        if m:
+            stats["Current Rank"] = m.group(1).title()
+
+    # --- “Last N Games” block ---
     for i, ln in enumerate(lines):
         m = re.search(r"Last\s+(\d+)\s+Games", ln, re.I)
-        if not m:
-            continue
-        # N
-        try:
-            stats["Last # of Games"] = int(m.group(1))
-        except ValueError:
-            pass
-
-        # WR near the label (often appears BEFORE)
+        if not m: continue
+        try: stats["Last # of Games"] = int(m.group(1))
+        except ValueError: pass
         wr_m, _ = scan_near(i, r"\b\d{1,3}(?:\.\d+)?\s*%\s*WR\b")
         if wr_m and stats["Last # Games Win Rate"] is None:
             stats["Last # Games Win Rate"] = parse_pct(wr_m.group(0))
-
-        # Nearby Goals / Saves (value usually on the previous line)
         for j in range(max(0, i-6), min(len(lines), i+12)):
             if lines[j].lower() == "goals" and stats["Last # of Games Goals"] is None:
                 v = prev_value_int(j)
-                if v is not None:
-                    stats["Last # of Games Goals"] = v
+                if v is not None: stats["Last # of Games Goals"] = v
             if lines[j].lower() == "saves" and stats["Last # of Games Saves"] is None:
                 v = prev_value_int(j)
-                if v is not None:
-                    stats["Last # of Games Saves"] = v
-        break  # only the first Last N block
+                if v is not None: stats["Last # of Games Saves"] = v
+        break
 
-    # ---------- Overall W/L/M from header like “(121W 87L)” ----------
+    # --- Overall W/L/M from "(123W 45L)" ---
     for ln in lines:
         m = re.search(r"\((\d{1,3}(?:,\d{3})*)W\s+(\d{1,3}(?:,\d{3})*)L\)", ln)
         if m:
@@ -265,7 +254,7 @@ def extract_profile_stats(player_name, text, profile_url):
             stats["Total Matches"] = wins + losses
             break
 
-    # ---------- Lifetime stat tiles (value on the previous line) ----------
+    # --- Lifetime tiles ---
     label_to_key = {
         "Goals": "Total Goals",
         "Assists": "Total Assists",
@@ -282,40 +271,30 @@ def extract_profile_stats(player_name, text, profile_url):
         if ln in label_to_key:
             key = label_to_key[ln]
             if key == "Total Shot %":
-                # try prev or same line
                 pct = parse_pct(lines[idx-1]) if idx > 0 else None
-                if pct is None:
-                    pct = parse_pct(ln)
+                if pct is None: pct = parse_pct(ln)
                 stats[key] = pct
             else:
                 v = prev_value_int(idx)
-                if v is not None:
-                    stats[key] = v
+                if v is not None: stats[key] = v
 
-    # ---------- Playlist Win Rates (Ranked/5v5/4v4/3v3) ----------
-    playlist_key = {
-        "ranked": "Ranked Win Rate",
-        "5v5": "5v5 Win Rate",
-        "4v4": "4v4 Win Rate",
-        "3v3": "3v3 Win Rate",
-    }
+    # --- Playlist WRs ---
+    playlist_key = {"ranked": "Ranked Win Rate", "5v5": "5v5 Win Rate", "4v4": "4v4 Win Rate", "3v3": "3v3 Win Rate"}
     pl_head = re.compile(r"^(Ranked|5v5|4v4|3v3)\b", re.I)
     for i, ln in enumerate(lines):
         m = pl_head.match(ln)
-        if not m:
-            continue
+        if not m: continue
         key = playlist_key[m.group(1).lower()]
-        # Prefer “##% WR ...” near the header; fallback to any percent nearby
         wr_m, _ = scan_near(i, r"\b\d{1,3}(?:\.\d+)?\s*%\s*WR\b", forward=6, backward=0)
         if wr_m and stats[key] is None:
             stats[key] = parse_pct(wr_m.group(0))
         if stats[key] is None:
             pct_m, _ = scan_near(i, r"\b\d{1,3}(?:\.\d+)?\s*%\b", forward=6, backward=0)
-            if pct_m:
-                stats[key] = parse_pct(pct_m.group(0))
+            if pct_m: stats[key] = parse_pct(pct_m.group(0))
 
     return stats
 
+# ---------- Scraper (single run, per your original flow) ----------
 def scrape_rematch_profiles():
     match_rows = []
     profile_rows = []
@@ -331,22 +310,45 @@ def scrape_rematch_profiles():
             page.goto(url)
             page.wait_for_timeout(5000)
 
+            # 1) Grab the Match History container (for fallback + profile stats text)
             try:
                 section = page.locator("text=Match History").first
                 container = section.locator("xpath=../../../..")
-                visible_text = container.inner_text()
+                container_text = container.inner_text()
             except Exception as e:
-                print(f"❌ Failed to extract for {name}: {e}")
-                visible_text = ""
+                print(f"❌ Failed to locate Match History for {name}: {e}")
+                container_text = ""
 
-            match_rows.extend(extract_match_summary(name, visible_text))
-            profile_rows.append(extract_profile_stats(name, visible_text, url))
+            # 2) Try to iterate each match card to pick up Rank reliably
+            #    We try a few candidate selectors, then fall back to container parsing.
+            cards = None
+            for sel in ["[data-testid='match-card']", ".match-card", "section:has-text('matches') >> div", "article"]:
+                nodes = container.locator(sel) if container_text else page.locator(sel)
+                if nodes.count() > 0:
+                    cards = nodes
+                    break
+
+            if cards and cards.count() > 0:
+                for i in range(cards.count()):
+                    card = cards.nth(i)
+                    try:
+                        card_text = card.inner_text()
+                    except Exception:
+                        card_text = ""
+                    rank = get_rank_from_card_sync(card)
+                    match_rows.extend(extract_match_summary(name, card_text, rank_override=rank))
+            else:
+                # Fallback: parse whole container text (no per-card rank; “Elite” may still be present)
+                match_rows.extend(extract_match_summary(name, container_text))
+
+            # Profile-level stats (use the same container text)
+            profile_rows.append(extract_profile_stats(name, container_text, url))
 
         browser.close()
 
     return match_rows, profile_rows
 
-# Run and export
+# ---------- Run & export ----------
 matches, profiles = scrape_rematch_profiles()
 
 pd.DataFrame(matches).to_csv("match_history.csv", index=False)

@@ -14,7 +14,6 @@ def use_regex(input_text):
     return pattern.match(input_text).group(0)
 
 def get_players_data(replay, team):
-
     # Extract the id from the groups array
     group_id = replay.get("groups", [{}])[0].get("id", None)
 
@@ -84,16 +83,6 @@ def get_players_data(replay, team):
         'team_name'
     ]]
 
-    # # Add in opponent name for aggregation later
-    # print (df_meta)
-    # if team_name != '':
-    #     if team == 'blue':
-    #         df_meta['opponent'] = replay['orange']['name']
-    #     else:
-    #         df_meta['opponent'] = replay['blue']['name']
-    # else:
-    #     df_meta['opponent'] = ''
-
     df_stats = pd.DataFrame.from_dict(temp['stats'])
     dict_stats = df_stats['stats'].to_dict()
     df_player_data = pd.DataFrame.from_dict(dict_stats)
@@ -107,18 +96,15 @@ def get_players_data(replay, team):
         core.append(s)
         dfcombined = pd.DataFrame(core)
 
-
     boost = []
     for s in df_player_data['boost']:
         boost.append(s)
         dfboost = pd.DataFrame(boost)
 
-
     movement = []
     for s in df_player_data['movement']:
         movement.append(s)
         dfmove = pd.DataFrame(movement)
-
 
     positioning = []
     for s in df_player_data['positioning']:
@@ -296,10 +282,11 @@ if __name__ == "__main__":
     replays = []
     groups = []
 
-    replays = replayStructure("replay",Links)
+    # Prepare the input list to be ready to queue all the replays up for download from the API
+    replays = replayStructure("replay",Links) 
     groups = replayStructure("group",Links)
 
-    # Create an empty DataFrame to store all the data
+    # Grab and store all the replay data for all replays
     final_df = pd.DataFrame()
     final_df = pd.concat([final_df,process_individual_replays(replays)], ignore_index=True)
     final_df = pd.concat([final_df,process_group_replays(groups)], ignore_index=True)
