@@ -156,16 +156,16 @@ def create_matchhistory(df):
                 END AS Team_replaced,
                 '[' 
                     || CASE
-                        WHEN df1.group_id = 'b-tier-i05jpp2ouv' THEN 'Week 3'
-                        WHEN df1.group_id = 's-tier-krhmn4sd1o' THEN 'Week 4'
-                        WHEN df1.date < '2025-04-29' THEN 'Week 1'
-                        WHEN df1.date < '2025-05-06' AND df1.date > '2025-04-29' THEN 'Week 2'
-                        WHEN df1.date < '2025-05-13' AND df1.date > '2025-05-06' THEN 'Week 3'
-                        WHEN df1.date < '2025-05-20' AND df1.date > '2025-05-13' THEN 'Week 4'
-                        WHEN df1.date < '2025-05-27' AND df1.date > '2025-05-20' THEN 'Week 5'
-                        WHEN df1.date < '2025-06-03' AND df1.date > '2025-05-27' THEN 'Week 6'
-                        WHEN df1.date < '2025-06-10' AND df1.date > '2025-06-03' THEN 'Playoffs R1'
-                        WHEN df1.date < '2025-06-17' AND df1.date > '2025-06-10' THEN 'Playoffs R2'
+                        WHEN df1.date < '2026-01-13' THEN 'Pre-Season'
+                        WHEN df1.date < '2026-01-20' AND df1.date > '2026-01-13' THEN 'Week 1'
+                        WHEN df1.date < '2026-01-27' AND df1.date > '2026-01-20' THEN 'Week 2'
+                        WHEN df1.date < '2026-02-03' AND df1.date > '2026-01-27' THEN 'Week 3'
+                        WHEN df1.date < '2026-02-10' AND df1.date > '2026-02-03' THEN 'Week 4'
+                        WHEN df1.date < '2026-02-17' AND df1.date > '2026-02-10' THEN 'Week 5'
+                        WHEN df1.date < '2026-02-24' AND df1.date > '2026-02-17' THEN 'Week 6'
+                        WHEN df1.date < '2026-03-03' AND df1.date > '2026-02-24' THEN 'Week 7'
+                        WHEN df1.date < '2026-03-10' AND df1.date > '2026-03-03' THEN 'Playoffs R1'
+                        WHEN df1.date < '2026-03-17' AND df1.date > '2026-03-10' THEN 'Playoffs R2'
                         ELSE '' END 
                     || ']' 
                     || Case
@@ -296,18 +296,13 @@ def create_matchhistory(df):
             [inflicted],
             [taken],
             Case 
-                when [group_id] = 's-tier-kg2memz8lb' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
-                when [group_id] = 'b-tier-urdbj4gqci' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
-                when [group_id] = 'a-tier-eonpxtxguf' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
-                when [group_id] = 's-tier-z2477qtxdg' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
-                when [group_id] = 'a-tier-83e7pv66vb' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
-                when [group_id] = 's-tier-oi0nj2hsg1' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
-                when [group_id] = 'c-tier-2yytq7nin4' then LAST_VALUE(match_name) OVER (PARTITION BY group_id) --A traded with a designated alternate
+                when [group_id] = 'b-tier-v5pps4btgf' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
+                when [group_id] = 'b-tier-a8lcrbxnlf' then LAST_VALUE(match_name) OVER (PARTITION BY group_id)
                 ELSE FIRST_VALUE(match_name) OVER (PARTITION BY group_id) 
             END AS match_name,
             DENSE_RANK() OVER (PARTITION BY group_id ORDER BY date_fixed) AS game_number,
             CASE 
-                WHEN date < Date('2025-06-03') THEN '5'
+                WHEN date < Date('2026-03-04') THEN '5'
                 ELSE '7' 
             END AS 'Series_Length'
         FROM RankedGames
@@ -366,10 +361,6 @@ def create_matchhistory(df):
         # Update joined_results_grouped with the filtered rows for this match
         joined_results_grouped = joined_results_grouped[joined_results_grouped['match_name'] != match_name]
         joined_results_grouped = pd.concat([joined_results_grouped, filtered_rows])
-    
-    # Drop duplicates based on match_name and game_number (keeping the first occurrence)
-    # joined_results_grouped = joined_results_grouped.drop_duplicates(subset=['match_name', 'game_number'])
-    # joined_results_grouped.to_csv('GCBLeague/GrindhouseProjects/whatisthis.csv')
     
     # Create a new DataFrame for match history
     match_history = joined_results_grouped[['match_name', 'Team_team', 'team_goals_team', 'Team_opponent', 'team_goals_opponent','game_number']].copy()
@@ -501,7 +492,6 @@ def create_leaderboard(df):
 
     # all_teams_performance.to_csv('GCBLeague/GrindhouseProjects/results.csv')
     return all_teams_performance
-
 
 def merge_data(season_live_path, player_index_path):
     # Read the CSV files into DataFrames
@@ -654,23 +644,23 @@ def create_blank_matches(merged_data, match_name, Created, Team, Gameoutcome, Op
     return generateddf
 
 def admin_adjustments(match_history):
-    all_matches = pd.read_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
-    match_history = insert_row(match_history,'[Week 2]Nessies vs MobyDicks(C)- MobyDicks FF', 'Nessies','MobyDicks',3,0,3-0,'3v3',0,0,0)
-    combined = pd.concat([all_matches, create_blank_matches(merged_data,'[Week 2]Nessies vs MobyDicks(C)','2025-05-05 07:00:00','Nessies','W','MobyDicks',3,'C')], ignore_index=True)
-    combined = combined.drop(columns=['Unnamed: 0'])
-    combined.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
+    # all_matches = pd.read_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
+    # match_history = insert_row(match_history,'[Week 2]Nessies vs MobyDicks(C)- MobyDicks FF', 'Nessies','MobyDicks',3,0,3-0,'3v3',0,0,0)
+    # combined = pd.concat([all_matches, create_blank_matches(merged_data,'[Week 2]Nessies vs MobyDicks(C)','2025-05-05 07:00:00','Nessies','W','MobyDicks',3,'C')], ignore_index=True)
+    # combined = combined.drop(columns=['Unnamed: 0'])
+    # combined.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
     
-    all_matches = pd.read_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
-    match_history = insert_row(match_history,'[Week 3]MobyDicks vs Jormungandr(S)- Jormungandr FF', 'MobyDicks','Jormungandr',3,0,3-0,'3v3',0,0,0)
-    combined = pd.concat([all_matches, create_blank_matches(merged_data,'[Week 3]MobyDicks vs Jormungandr(S)','2025-05-12 07:00:00','MobyDicks','W','Jormungandr',3,'S')], ignore_index=True)
-    combined = combined.drop(columns=['Unnamed: 0'])
-    combined.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
+    # all_matches = pd.read_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
+    # match_history = insert_row(match_history,'[Week 3]MobyDicks vs Jormungandr(S)- Jormungandr FF', 'MobyDicks','Jormungandr',3,0,3-0,'3v3',0,0,0)
+    # combined = pd.concat([all_matches, create_blank_matches(merged_data,'[Week 3]MobyDicks vs Jormungandr(S)','2025-05-12 07:00:00','MobyDicks','W','Jormungandr',3,'S')], ignore_index=True)
+    # combined = combined.drop(columns=['Unnamed: 0'])
+    # combined.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
 
-    all_matches = pd.read_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
-    match_history = insert_row(match_history,'[Week 6]Nightstakers vs Jormungandr(C)- Jormungandr FF', 'Nightstalkers','Jormungandr',3,0,3-0,'3v3',0,0,0)
-    combined = pd.concat([all_matches, create_blank_matches(merged_data,'[Week 6]Nightstakers vs Jormungandr(C)','2025-06-02 07:00:00','Nightstalkers','W','Jormungandr',3,'C')], ignore_index=True)
-    combined = combined.drop(columns=['Unnamed: 0'])
-    combined.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
+    # all_matches = pd.read_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
+    # match_history = insert_row(match_history,'[Week 6]Nightstakers vs Jormungandr(C)- Jormungandr FF', 'Nightstalkers','Jormungandr',3,0,3-0,'3v3',0,0,0)
+    # combined = pd.concat([all_matches, create_blank_matches(merged_data,'[Week 6]Nightstakers vs Jormungandr(C)','2025-06-02 07:00:00','Nightstalkers','W','Jormungandr',3,'C')], ignore_index=True)
+    # combined = combined.drop(columns=['Unnamed: 0'])
+    # combined.to_csv('C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/AllMatches.csv')
 
     return match_history
 
@@ -719,7 +709,7 @@ def player_superlatives(merged_data,player_index):
 
 if __name__ == "__main__":
     inpath = 'C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/seasonData.csv'
-    indexPath = 'C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/S3PlayerIndex.csv'
+    indexPath = 'C:/Users/conno/Documents/Coding/GCBLeague/GrindhouseProjects/S4PlayerIndex.csv'
 
     merged_data = merge_data(inpath, indexPath)
     # merged_data.to_csv('merged_data.csv')
